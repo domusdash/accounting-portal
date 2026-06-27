@@ -161,8 +161,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     setLoading(true);
     try {
       const [overRes, costRes, revRes, userRes, liveRes] = await Promise.all([
-        api.get(`/accounting/overview?timeframe=${timeframe}`),
-        api.get('/accounting/costs'),
+        api.get(`/accounting/overview?timeframe=${timeframe}&monthIdx=${selectedMonthIdx}`),
+        api.get(`/accounting/costs?monthIdx=${selectedMonthIdx}`),
         api.get('/accounting/revenue'),
         api.get('/users'),
         api.get('/accounting/live-integrations')

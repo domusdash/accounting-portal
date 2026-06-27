@@ -86,7 +86,7 @@ async function fetchLiveApiCosts() {
           description: `DigitalOcean App Platform Instance (${appName})`,
           amount: cost,
           billingCycle: 'monthly',
-          date: new Date().toISOString()
+          date: app.created_at || new Date().toISOString()
         });
       }
 
@@ -111,7 +111,7 @@ async function fetchLiveApiCosts() {
           description: `DigitalOcean Droplet Server (${name} SFO3)`,
           amount: cost,
           billingCycle: 'monthly',
-          date: new Date().toISOString()
+          date: d.created_at || new Date().toISOString()
         });
       }
     } catch (e) {
@@ -156,7 +156,7 @@ async function fetchLiveApiCosts() {
             category: 'domain_hosting',
             description: `Name.com Original Registration (${domainName || itemType})`,
             amount: item.price,
-            billingCycle: 'annual',
+            billingCycle: 'one-off',
             date: orderDate
           });
         }
@@ -174,8 +174,6 @@ async function fetchLiveApiCosts() {
         headers: { Authorization: `Bearer ${resendKey}` }
       });
       const domainsList = resendRes.data?.data || [];
-      
-      // Dynamically detect plan tier based on live API capabilities & domain allocations (Free allows 1 domain, Pro allows multi-domain)
       const isProPlan = domainsList.length > 1;
       const liveResendCost = isProPlan ? 20.00 : 0.00;
 
@@ -186,7 +184,7 @@ async function fetchLiveApiCosts() {
         description: `Resend Live Email API (${isProPlan ? 'Pro Plan' : 'Free Tier'})`,
         amount: liveResendCost,
         billingCycle: 'monthly',
-        date: new Date().toISOString()
+        date: '2026-03-12T00:00:00Z' // Resend active since March
       });
     } catch (e) {
       console.warn('Resend dynamic billing query warning:', (e as any).message);
@@ -198,23 +196,48 @@ async function fetchLiveApiCosts() {
   return [...liveCosts, ...dbCosts];
 }
 
-// GET /api/accounting/overview - Aggregated financial metrics 100% live via APIs
+// GET /api/accounting/overview - Aggregated financial metrics 100% live via APIs with month jumping
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
   const isAggregated = (req as any).isAggregated;
   const timeframe = (req.query.timeframe as string) || 'monthly'; // 'monthly' | 'annual'
+  const targetMonthIdx = req.query.monthIdx !== undefined ? Number(req.query.monthIdx) : 5; // Default 5 = June 2026
 
   try {
     const allCosts = await fetchLiveApiCosts();
     const filterOrgId = org._id.toString();
 
-    const costs = isAggregated ? allCosts : allCosts.filter(c => {
+    // Filter costs by selected organization
+    let costs = isAggregated ? allCosts : allCosts.filter(c => {
       const cId = c.organizationId?._id?.toString() || c.organizationId?.toString();
       return cId === filterOrgId;
     });
 
+    // Month filtering logic for historical month jumping
+    costs = costs.filter(c => {
+      if (!c.date) return true;
+      const d = new Date(c.date);
+      const itemMonth = d.getMonth();
+      const itemYear = d.getFullYear();
+
+      if (c.billingCycle === 'one-off') {
+        // One-off domain purchases only appear in the specific month purchased
+        return itemYear === 2026 && itemMonth === targetMonthIdx;
+      } else {
+        // Monthly or annual recurring costs apply if created on or before target month
+        if (itemYear < 2026) return true;
+        if (itemYear === 2026) return itemMonth <= targetMonthIdx;
+        return false;
+      }
+    });
+
     const revFilter: any = isAggregated ? {} : { organizationId: org._id };
-    const revenues = await RevenueEntry.find(revFilter).populate('organizationId', 'name slug');
+    let revenues = await RevenueEntry.find(revFilter).populate('organizationId', 'name slug');
+    revenues = revenues.filter(r => {
+      if (!r.date) return true;
+      const d = new Date(r.date);
+      return d.getFullYear() === 2026 && d.getMonth() === targetMonthIdx;
+    });
 
     let totalCosts = 0;
     let categoryBreakdown: Record<string, number> = {
@@ -265,7 +288,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
           brandBreakdown[o._id.toString()] = { id: o._id.toString(), name: o.name, slug: o.slug, costs: 0, revenue: 0, net: 0 };
         }
       }
-      for (const c of allCosts) {
+      for (const c of costs) {
         const idStr = c.organizationId?._id?.toString() || c.organizationId?.toString();
         if (idStr && brandBreakdown[idStr]) {
           let amt = c.amount || 0;
@@ -288,6 +311,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
 
     res.json({
       timeframe,
+      targetMonthIdx,
       totalRevenue,
       totalCosts,
       netProfit,
@@ -405,13 +429,30 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
 router.get('/costs', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
   const isAggregated = (req as any).isAggregated;
+  const targetMonthIdx = req.query.monthIdx !== undefined ? Number(req.query.monthIdx) : 5;
   try {
     const allCosts = await fetchLiveApiCosts();
     const filterOrgId = org._id.toString();
-    const costs = isAggregated ? allCosts : allCosts.filter(c => {
+    let costs = isAggregated ? allCosts : allCosts.filter(c => {
       const cId = c.organizationId?._id?.toString() || c.organizationId?.toString();
       return cId === filterOrgId;
     });
+
+    costs = costs.filter(c => {
+      if (!c.date) return true;
+      const d = new Date(c.date);
+      const itemMonth = d.getMonth();
+      const itemYear = d.getFullYear();
+
+      if (c.billingCycle === 'one-off') {
+        return itemYear === 2026 && itemMonth === targetMonthIdx;
+      } else {
+        if (itemYear < 2026) return true;
+        if (itemYear === 2026) return itemMonth <= targetMonthIdx;
+        return false;
+      }
+    });
+
     res.json(costs);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch costs' });
