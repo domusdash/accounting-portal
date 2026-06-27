@@ -66,10 +66,11 @@ const seedData = async () => {
     await CostEntry.deleteMany({});
     await RevenueEntry.deleteMany({});
 
-    console.log('[🌱] Seeding verified app server infrastructure...');
+    console.log('[🌱] Seeding verified app server infrastructure & live Name.com domain costs...');
     const verifiedCosts = [
-      // DomusDash Production Container
-      { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (domusdash-prod)', amount: 5.00, billingCycle: 'monthly' },
+      // DomusDash Production ($24/mo) & Development ($5/mo) Containers
+      { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Production Container (domusdash-prod)', amount: 24.00, billingCycle: 'monthly' },
+      { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Development Instance (domusdash-dev)', amount: 5.00, billingCycle: 'monthly' },
 
       // Verified DigitalOcean Droplet Servers ($4.00/mo SFO3 droplets)
       { org: 'antiwokeschools', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (antiwokeschools SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
@@ -83,7 +84,18 @@ const seedData = async () => {
       { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (dailyflowlabs)', amount: 5.00, billingCycle: 'monthly' },
       { org: 'irondial', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (irondial)', amount: 5.00, billingCycle: 'monthly' },
       { org: 'short-code-icons', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (shortcode-icons)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (accounting-portal)', amount: 5.00, billingCycle: 'monthly' }
+      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (accounting-portal)', amount: 5.00, billingCycle: 'monthly' },
+
+      // 🌐 Live Name.com Domain Registration & Annual Renewal Fees
+      { org: 'domusdash', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (domusdash.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'daily-flow-labs', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (dailyflowlabs.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'blueprintconverter', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (blueprintconverter.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'short-code-icons', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (shortcodeicons.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'thumbverify', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (thumbverify.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'localredactpdf', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (localredactpdf.com)', amount: 19.99, billingCycle: 'annual' },
+      { org: 'irondial', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (irondial.app)', amount: 26.99, billingCycle: 'annual' },
+      { org: 'freeqrcode', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (freeqrcode.pro)', amount: 35.99, billingCycle: 'annual' },
+      { org: 'oftheworld', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (oftheworld.io)', amount: 79.99, billingCycle: 'annual' }
     ];
 
     for (const c of verifiedCosts) {
@@ -99,7 +111,7 @@ const seedData = async () => {
       }
     }
 
-    console.log('[🌱] Accounting database clean seed complete!');
+    console.log('[🌱] DomusDash production container ($24/mo), dev container ($5/mo), and live Name.com domain cost seed complete!');
     process.exit(0);
   } catch (err) {
     console.error('[❌] Error seeding database:', err);
