@@ -63,7 +63,11 @@ async function fetchLiveApiCosts() {
       for (const app of apps) {
         const spec = app.spec || {};
         const appName = spec.name || 'app';
-        let cost = 5.00;
+        const services = spec.services || [];
+        const staticSites = spec.static_sites || [];
+        const isStaticOnly = services.length === 0 && staticSites.length > 0;
+
+        let cost = isStaticOnly ? 0.00 : 5.00;
         let matchedOrg = parentOrg;
 
         if (appName.includes('domusdash') || appName.includes('dashboard')) {
@@ -79,11 +83,13 @@ async function fetchLiveApiCosts() {
           matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
         }
 
+        const typeLabel = isStaticOnly ? 'Static Site - Free Tier' : 'Container Service';
+
         liveCosts.push({
           _id: `do_app_${app.id}`,
           organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
           category: 'digital_ocean',
-          description: `DigitalOcean App Platform Instance (${appName})`,
+          description: `DigitalOcean App Platform (${appName} - ${typeLabel})`,
           amount: cost,
           billingCycle: 'monthly',
           date: app.created_at || new Date().toISOString()
