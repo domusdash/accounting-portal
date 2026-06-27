@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import bcrypt from 'bcrypt';
 import Organization from './models/Organization';
 import User from './models/User';
 import CostEntry from './models/CostEntry';
@@ -45,24 +44,24 @@ const seedData = async () => {
       orgMap[item.slug] = doc;
     }
 
-    // Superadmin user
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('adminpassword123', salt);
+    // Superadmin user (Pure Google OAuth 2.0 account - zero passwords stored)
     let admin = await User.findOne({ email: 'benjosephroberts@gmail.com' });
     if (!admin) {
       admin = new User({
         email: 'benjosephroberts@gmail.com',
         name: 'Ben Roberts',
-        passwordHash,
         role: 'superadmin'
       });
       await admin.save();
-      console.log('[🌱] Created superadmin user: benjosephroberts@gmail.com');
+      console.log('[🌱] Created superadmin user for Google Auth: benjosephroberts@gmail.com');
     } else {
-      admin.passwordHash = passwordHash;
+      admin.set('passwordHash', undefined); // Completely strip legacy password hash
       await admin.save();
-      console.log('[🌱] Updated superadmin user password');
+      console.log('[🌱] Purged legacy password hash for superadmin user');
     }
+
+    // Unset passwordHash across ALL users in database
+    await User.updateMany({}, { $unset: { passwordHash: "" } });
 
     // Clear existing mocked data to ensure 100% authentic, real data
     await CostEntry.deleteMany({});
