@@ -665,6 +665,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.75rem' }}>Date</th>
                     <th style={{ padding: '0.75rem' }}>Category</th>
                     <th style={{ padding: '0.75rem' }}>Brand</th>
                     <th style={{ padding: '0.75rem' }}>Description</th>
@@ -678,6 +679,9 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     const IconComp = CATEGORY_ICONS[cost.category] || FaCoins;
                     return (
                       <tr key={cost._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                          {cost.date ? new Date(cost.date).toLocaleDateString() : 'Active'}
+                        </td>
                         <td style={{ padding: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff', fontWeight: 600 }}>
                           <IconComp style={{ color: 'var(--primary)' }} /> {CATEGORY_LABELS[cost.category] || cost.category}
                         </td>
@@ -711,6 +715,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.75rem' }}>Date</th>
                     <th style={{ padding: '0.75rem' }}>Source</th>
                     <th style={{ padding: '0.75rem' }}>Brand</th>
                     <th style={{ padding: '0.75rem' }}>Description</th>
@@ -721,6 +726,9 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 <tbody>
                   {revenueList.map(rev => (
                     <tr key={rev._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ padding: '0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        {rev.date ? new Date(rev.date).toLocaleDateString() : 'Active'}
+                      </td>
                       <td style={{ padding: '0.75rem', color: '#fff', fontWeight: 600 }}>
                         {SOURCE_LABELS[rev.source] || rev.source}
                       </td>
