@@ -28,8 +28,6 @@ const seedData = async () => {
       { name: 'Anti-Woke Schools', slug: 'antiwokeschools' }
     ];
 
-    const orgMap: Record<string, any> = {};
-
     for (const item of orgs) {
       let doc = await Organization.findOne({ slug: item.slug });
       if (!doc) {
@@ -41,7 +39,6 @@ const seedData = async () => {
         await doc.save();
         console.log(`[🌱] Updated organization: ${item.name}`);
       }
-      orgMap[item.slug] = doc;
     }
 
     // Superadmin user (Pure Google OAuth 2.0 account)
@@ -62,59 +59,14 @@ const seedData = async () => {
 
     await User.updateMany({}, { $unset: { passwordHash: "" } });
 
-    // Clear ledger entries so user has clean slate
+    // Wipe all static seeded cost/revenue entries so everything is fetched 100% dynamically via live APIs
     await CostEntry.deleteMany({});
     await RevenueEntry.deleteMany({});
 
-    console.log('[🌱] Seeding verified app server infrastructure & live Name.com domain costs...');
-    const verifiedCosts = [
-      // DomusDash Production ($24/mo) & Development ($5/mo) Containers
-      { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Production Container (domusdash-prod)', amount: 24.00, billingCycle: 'monthly' },
-      { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Development Instance (domusdash-dev)', amount: 5.00, billingCycle: 'monthly' },
-
-      // Verified DigitalOcean Droplet Servers ($4.00/mo SFO3 droplets)
-      { org: 'antiwokeschools', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (antiwokeschools SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      { org: 'thumbverify', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (thumbverify-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      { org: 'oftheworld', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (oftheworld-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      
-      // Verified DigitalOcean App Platform Services ($5.00/mo)
-      { org: 'localredactpdf', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (localredactpdf)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'blueprintconverter', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (blueprintconverter)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'freeqrcode', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (freeqrcode-pro)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (dailyflowlabs)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'irondial', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (irondial)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'short-code-icons', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (shortcode-icons)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (accounting-portal)', amount: 5.00, billingCycle: 'monthly' },
-
-      // 🌐 Live Name.com Domain Registration & Annual Renewal Fees
-      { org: 'domusdash', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (domusdash.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'daily-flow-labs', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (dailyflowlabs.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'blueprintconverter', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (blueprintconverter.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'short-code-icons', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (shortcodeicons.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'thumbverify', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (thumbverify.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'localredactpdf', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (localredactpdf.com)', amount: 19.99, billingCycle: 'annual' },
-      { org: 'irondial', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (irondial.app)', amount: 26.99, billingCycle: 'annual' },
-      { org: 'freeqrcode', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (freeqrcode.pro)', amount: 35.99, billingCycle: 'annual' },
-      { org: 'oftheworld', category: 'domain_hosting', description: 'Name.com Live Domain Registration & Renewal (oftheworld.io)', amount: 79.99, billingCycle: 'annual' }
-    ];
-
-    for (const c of verifiedCosts) {
-      if (orgMap[c.org]) {
-        await new CostEntry({
-          organizationId: orgMap[c.org]._id,
-          category: c.category,
-          description: c.description,
-          amount: c.amount,
-          billingCycle: c.billingCycle,
-          date: new Date()
-        }).save();
-      }
-    }
-
-    console.log('[🌱] DomusDash production container ($24/mo), dev container ($5/mo), and live Name.com domain cost seed complete!');
+    console.log('[🌱] Clean initialization complete! Zero static seeded cost entries. Everything is fetched 100% live from DigitalOcean, Name.com, and Resend APIs.');
     process.exit(0);
   } catch (err) {
-    console.error('[❌] Error seeding database:', err);
+    console.error('[❌] Error initializing database:', err);
     process.exit(1);
   }
 };
