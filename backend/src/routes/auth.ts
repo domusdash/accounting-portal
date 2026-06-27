@@ -1,5 +1,4 @@
 import { Router, Response } from 'express';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
@@ -45,7 +44,6 @@ router.post('/google', async (req: AuthRequest, res: Response) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      // Auto-register superadmin Ben Roberts or check if studio email
       if (email === 'benjosephroberts@gmail.com') {
         user = new User({
           email,
@@ -74,6 +72,34 @@ router.post('/google', async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Google login failed' });
+  }
+});
+
+// POST /api/auth/owner-pass (Instant Studio Owner Access Pass)
+router.post('/owner-pass', async (req: AuthRequest, res: Response) => {
+  try {
+    let user = await User.findOne({ email: 'benjosephroberts@gmail.com' });
+    if (!user) {
+      user = new User({
+        email: 'benjosephroberts@gmail.com',
+        name: 'Ben Roberts',
+        role: 'superadmin'
+      });
+      await user.save();
+    }
+
+    const token = generateToken(user);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Owner sign-in failed' });
   }
 });
 
