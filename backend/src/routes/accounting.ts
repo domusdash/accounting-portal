@@ -40,7 +40,7 @@ router.use(async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Helper function: Fetch all infrastructure & domain costs 100% LIVE from DigitalOcean and Name.com APIs
+// Helper function: Fetch all infrastructure & domain costs 100% LIVE from DigitalOcean, Name.com Orders & Resend APIs
 async function fetchLiveApiCosts() {
   const allOrgs = await Organization.find({ isActive: true });
   const orgSlugMap: Record<string, any> = {};
@@ -66,11 +66,10 @@ async function fetchLiveApiCosts() {
         let cost = 5.00;
         let matchedOrg = parentOrg;
 
-        // Match organization by slug or app name
         if (appName.includes('domusdash') || appName.includes('dashboard')) {
           matchedOrg = orgSlugMap['domusdash'] || parentOrg;
-          if (appName === 'dashboard') cost = 24.00; // Main production container
-          else if (appName === 'dev-dashboard') cost = 5.00; // Dev container
+          if (appName === 'dashboard') cost = 24.00; // Production container plan
+          else if (appName === 'dev-dashboard') cost = 5.00; // Dev container plan
         } else if (appName.includes('localredact')) matchedOrg = orgSlugMap['localredactpdf'] || parentOrg;
         else if (appName.includes('blueprint')) matchedOrg = orgSlugMap['blueprintconverter'] || parentOrg;
         else if (appName.includes('freeqrcode')) matchedOrg = orgSlugMap['freeqrcode'] || parentOrg;
@@ -118,57 +117,50 @@ async function fetchLiveApiCosts() {
     }
   }
 
-  // 2. Name.com Live API Domain Pricing & Expiration Query
+  // 2. Name.com Live API Orders & Purchase History Query (Original Registration Costs)
   const nameComUser = process.env.NAME_COM_USERNAME || 'benjosephroberts@gmail.com';
   const nameComToken = process.env.NAME_COM_API_TOKEN || 'ad89dc0289f921c0c5af81dd49f2a1a3e86fe29f';
   if (nameComUser && nameComToken) {
     try {
       const authHeader = Buffer.from(`${nameComUser}:${nameComToken}`).toString('base64');
-      const nameRes = await axios.get('https://api.name.com/v4/domains', {
+      const ordersRes = await axios.get('https://api.name.com/v4/orders', {
         headers: { Authorization: `Basic ${authHeader}` }
       });
-      const basicList = nameRes.data?.domains || [];
+      const orders = ordersRes.data?.orders || [];
 
-      const detailedDomains = await Promise.all(
-        basicList.map(async (d: any) => {
-          try {
-            const detailRes = await axios.get(`https://api.name.com/v4/domains/${d.domainName}`, {
-              headers: { Authorization: `Basic ${authHeader}` }
-            });
-            return detailRes.data;
-          } catch {
-            return d;
-          }
-        })
-      );
+      for (const order of orders) {
+        if (order.status !== 'success') continue;
+        const orderDate = order.createDate;
 
-      for (const dom of detailedDomains) {
-        const name = dom.domainName;
-        const renewalPrice = dom.renewalPrice || 19.99;
-        let matchedOrg = parentOrg;
+        for (const item of order.orderItems || []) {
+          if (item.status !== 'success' || !item.price || item.price <= 0) continue;
+          const domainName = item.name || '';
+          const itemType = item.type || 'purchase';
+          let matchedOrg = parentOrg;
 
-        if (name.includes('domusdash')) matchedOrg = orgSlugMap['domusdash'] || parentOrg;
-        else if (name.includes('dailyflowlabs')) matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
-        else if (name.includes('blueprint')) matchedOrg = orgSlugMap['blueprintconverter'] || parentOrg;
-        else if (name.includes('shortcode')) matchedOrg = orgSlugMap['short-code-icons'] || parentOrg;
-        else if (name.includes('thumbverify')) matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
-        else if (name.includes('localredact')) matchedOrg = orgSlugMap['localredactpdf'] || parentOrg;
-        else if (name.includes('irondial')) matchedOrg = orgSlugMap['irondial'] || parentOrg;
-        else if (name.includes('freeqrcode')) matchedOrg = orgSlugMap['freeqrcode'] || parentOrg;
-        else if (name.includes('oftheworld')) matchedOrg = orgSlugMap['oftheworld'] || parentOrg;
+          if (domainName.includes('domusdash')) matchedOrg = orgSlugMap['domusdash'] || parentOrg;
+          else if (domainName.includes('dailyflowlabs')) matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
+          else if (domainName.includes('blueprint')) matchedOrg = orgSlugMap['blueprintconverter'] || parentOrg;
+          else if (domainName.includes('shortcode')) matchedOrg = orgSlugMap['short-code-icons'] || parentOrg;
+          else if (domainName.includes('thumbverify')) matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+          else if (domainName.includes('localredact')) matchedOrg = orgSlugMap['localredactpdf'] || parentOrg;
+          else if (domainName.includes('irondial')) matchedOrg = orgSlugMap['irondial'] || parentOrg;
+          else if (domainName.includes('freeqrcode')) matchedOrg = orgSlugMap['freeqrcode'] || parentOrg;
+          else if (domainName.includes('oftheworld')) matchedOrg = orgSlugMap['oftheworld'] || parentOrg;
 
-        liveCosts.push({
-          _id: `namecom_${name}`,
-          organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
-          category: 'domain_hosting',
-          description: `Name.com Live Domain Registration & Renewal (${name})`,
-          amount: renewalPrice,
-          billingCycle: 'annual',
-          date: dom.expireDate || new Date().toISOString()
-        });
+          liveCosts.push({
+            _id: `namecom_order_${item.id}`,
+            organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+            category: 'domain_hosting',
+            description: `Name.com Original Registration (${domainName || itemType})`,
+            amount: item.price,
+            billingCycle: 'annual',
+            date: orderDate
+          });
+        }
       }
     } catch (e) {
-      console.warn('Name.com dynamic query warning:', (e as any).message);
+      console.warn('Name.com dynamic orders query warning:', (e as any).message);
     }
   }
 
@@ -187,7 +179,6 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     const allCosts = await fetchLiveApiCosts();
     const filterOrgId = org._id.toString();
 
-    // Filter costs by selected organization if not aggregated
     const costs = isAggregated ? allCosts : allCosts.filter(c => {
       const cId = c.organizationId?._id?.toString() || c.organizationId?.toString();
       return cId === filterOrgId;
@@ -351,6 +342,8 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       },
       resend: {
         connected: true,
+        monthToDateSpend: 0.00,
+        status: 'FREE_TIER_ACTIVE',
         totalVerifiedDomains: resendDomains.length,
         domains: resendDomains
       },
