@@ -323,7 +323,24 @@ async function fetchLiveApiRevenue() {
         const amountDollars = (c.amount || 0) / 100;
         const createdDate = new Date((c.created || 0) * 1000).toISOString();
         const desc = c.description || c.statement_descriptor || 'Stripe Live Customer Payment';
-        let matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+        let matchedOrg = parentOrg;
+        const metaProject = c.metadata?.project || c.metadata?.app;
+        const searchStr = (desc + ' ' + JSON.stringify(c.metadata || {})).toLowerCase();
+
+        if (metaProject && orgSlugMap[metaProject]) {
+          matchedOrg = orgSlugMap[metaProject];
+        } else if (searchStr.includes('thumbverify') || searchStr.includes('creator pro')) {
+          matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+        } else if (searchStr.includes('domusdash') || searchStr.includes('family') || c.metadata?.familyId) {
+          matchedOrg = orgSlugMap['domusdash'] || parentOrg;
+        } else {
+          for (const slug of Object.keys(orgSlugMap)) {
+            if (searchStr.includes(slug) || searchStr.includes(orgSlugMap[slug].name.toLowerCase())) {
+              matchedOrg = orgSlugMap[slug];
+              break;
+            }
+          }
+        }
 
         liveRevenues.push({
           _id: `stripe_charge_${c.id}`,
