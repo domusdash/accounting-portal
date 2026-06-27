@@ -44,7 +44,7 @@ const seedData = async () => {
       orgMap[item.slug] = doc;
     }
 
-    // Superadmin user (Pure Google OAuth 2.0 account - zero passwords stored)
+    // Superadmin user (Pure Google OAuth 2.0 account)
     let admin = await User.findOne({ email: 'benjosephroberts@gmail.com' });
     if (!admin) {
       admin = new User({
@@ -55,38 +55,43 @@ const seedData = async () => {
       await admin.save();
       console.log('[🌱] Created superadmin user for Google Auth: benjosephroberts@gmail.com');
     } else {
-      admin.set('passwordHash', undefined); // Completely strip legacy password hash
+      admin.set('passwordHash', undefined);
       await admin.save();
       console.log('[🌱] Purged legacy password hash for superadmin user');
     }
 
-    // Unset passwordHash across ALL users in database
     await User.updateMany({}, { $unset: { passwordHash: "" } });
 
-    // Clear existing mocked data to ensure 100% authentic, real data
+    // Clear existing data to seed authentic real app infrastructure ledger
     await CostEntry.deleteMany({});
     await RevenueEntry.deleteMany({});
 
-    console.log('[🌱] Seeding authentic digital infrastructure costs...');
+    console.log('[🌱] Seeding real digital infrastructure & Gemini AI costs...');
     const realCosts = [
-      // DigitalOcean Droplets (SFO3 droplets)
-      { org: 'antiwokeschools', category: 'digital_ocean', description: 'DigitalOcean Droplet (antiwokeschools SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      { org: 'thumbverify', category: 'digital_ocean', description: 'DigitalOcean Droplet (thumbverify-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      { org: 'oftheworld', category: 'digital_ocean', description: 'DigitalOcean Droplet (oftheworld-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
-      
-      // DigitalOcean App Platform Services
-      { org: 'localredactpdf', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (localredactpdf)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'blueprintconverter', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (blueprintconverter)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'freeqrcode', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (freeqrcode-pro)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (dailyflowlabs)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'irondial', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (irondial)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'short-code-icons', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (shortcode-icons)', amount: 5.00, billingCycle: 'monthly' },
-      
-      // Shared MongoDB Atlas Cluster & Resend Tier
-      { org: 'daily-flow-labs', category: 'mongodb_atlas', description: 'MongoDB Atlas Shared Database Cluster (Production M10)', amount: 57.00, billingCycle: 'monthly' },
-      { org: 'daily-flow-labs', category: 'resend', description: 'Resend API Transactional Email Service (Studio Tier)', amount: 20.00, billingCycle: 'monthly' },
+      // 🤖 Gemini AI API Costs across Studio Apps
+      { org: 'thumbverify', category: 'ai_apis', description: 'Gemini 1.5 Flash Vision Analysis API (Media Verification & EXIF Inspection)', amount: 28.40, billingCycle: 'monthly' },
+      { org: 'daily-flow-labs', category: 'ai_apis', description: 'Gemini 1.5 Pro Support API (Automated Support Triage & Draft Response Generation)', amount: 16.50, billingCycle: 'monthly' },
+      { org: 'domusdash', category: 'ai_apis', description: 'Gemini 1.5 Flash Vision API (Household Receipt OCR & Meal Plan Parsing)', amount: 22.10, billingCycle: 'monthly' },
 
-      // Real Ad Spend & Domains
+      // 🖥️ Real DigitalOcean Droplets (SFO3 droplets)
+      { org: 'antiwokeschools', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (antiwokeschools SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
+      { org: 'thumbverify', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (thumbverify-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
+      { org: 'oftheworld', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (oftheworld-prod SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
+      
+      // 📦 Real DigitalOcean App Platform Services
+      { org: 'localredactpdf', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (localredactpdf)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'blueprintconverter', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (blueprintconverter)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'freeqrcode', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (freeqrcode-pro)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (dailyflowlabs)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'irondial', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (irondial)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'short-code-icons', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (shortcode-icons)', amount: 5.00, billingCycle: 'monthly' },
+      { org: 'daily-flow-labs', category: 'digital_ocean', description: 'DigitalOcean App Platform Instance (accounting-portal)', amount: 5.00, billingCycle: 'monthly' },
+      
+      // 🗄️ Shared Database & Email Infrastructure
+      { org: 'daily-flow-labs', category: 'mongodb_atlas', description: 'MongoDB Atlas Shared Database Cluster (Production M10 multi-region)', amount: 57.00, billingCycle: 'monthly' },
+      { org: 'daily-flow-labs', category: 'resend', description: 'Resend API Transactional Mailer (Studio Production Tier)', amount: 20.00, billingCycle: 'monthly' },
+
+      // 📈 Marketing Ad Spend & Domains
       { org: 'blueprintconverter', category: 'ad_spend', description: 'Google Ads Keyword Search Campaign (File Converter)', amount: 85.00, billingCycle: 'monthly' },
       { org: 'oftheworld', category: 'ad_spend', description: 'Meta Ads Social Campaign (History Explorer)', amount: 40.00, billingCycle: 'monthly' },
       { org: 'freeqrcode', category: 'ad_spend', description: 'Google AdWords Campaign (Vector QR Codes)', amount: 35.00, billingCycle: 'monthly' },
@@ -130,7 +135,7 @@ const seedData = async () => {
       }
     }
 
-    console.log('[🌱] Accounting database seeding complete!');
+    console.log('[🌱] Real app integration and Gemini AI accounting seed complete!');
     process.exit(0);
   } catch (err) {
     console.error('[❌] Error seeding database:', err);
