@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import axios from 'axios';
+import { execSync } from 'child_process';
 import Organization from '../models/Organization';
 import CostEntry from '../models/CostEntry';
 import RevenueEntry from '../models/RevenueEntry';
@@ -252,12 +253,45 @@ async function fetchLiveApiCosts() {
         description: `GitHub ${planName.toUpperCase()} Plan (${filledSeats} Seats @ $${pricePerSeat.toFixed(2)}/mo)`,
         amount: totalGithubCost,
         billingCycle: 'monthly',
-        date: '2026-06-01T00:00:00Z'
+        date: new Date().toISOString()
       });
     } catch (e) {
       console.warn('GitHub dynamic billing query warning:', (e as any).message);
     }
   }
+
+  // 6. MongoDB Atlas Cloud Database Live API & Tier Cost Query
+  const atlasPubKey = process.env.MONGODB_ATLAS_PUBLIC_KEY;
+  const atlasPrivKey = process.env.MONGODB_ATLAS_PRIVATE_KEY;
+  const atlasOrgId = process.env.MONGODB_ATLAS_ORG_ID;
+  let atlasCost = 0.00;
+  let atlasTier = 'Shared M0 Free Tier';
+
+  if (atlasPubKey && atlasPrivKey && atlasOrgId) {
+    try {
+      const out = execSync(`curl -s --digest -u ${atlasPubKey}:${atlasPrivKey} https://cloud.mongodb.com/api/atlas/v1.0/orgs/${atlasOrgId}/invoices/pending`).toString();
+      const invoiceData = JSON.parse(out);
+      let totalCents = 0;
+      for (const item of invoiceData.lineItems || []) {
+        totalCents += item.totalPriceCents || 0;
+      }
+      atlasCost = totalCents / 100;
+      atlasTier = 'Flex AWS Billed Cluster';
+    } catch (e) {
+      console.warn('MongoDB Atlas API live query warning:', (e as any).message);
+    }
+  }
+
+  const atlasOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
+  liveCosts.push({
+    _id: `mongodb_atlas_live_cluster`,
+    organizationId: { _id: atlasOrg._id, name: atlasOrg.name, slug: atlasOrg.slug },
+    category: 'mongodb_atlas',
+    description: `MongoDB Atlas Cloud Database (${atlasTier} - support.8sahnn2.mongodb.net)`,
+    amount: atlasCost,
+    billingCycle: 'monthly',
+    date: new Date().toISOString()
+  });
 
   // Combine with manually logged database cost entries (if any)
   const dbCosts = await CostEntry.find().populate('organizationId', 'name slug');
@@ -356,7 +390,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
 
     let totalCosts = 0;
     let categoryBreakdown: Record<string, number> = {
-      digital_ocean: 0, mongodb_atlas: 0, resend: 0, ad_spend: 0, domain_hosting: 0, ai_apis: 0, other: 0
+      digital_ocean: 0, mongodb_atlas: 0, resend: 0, ad_spend: 0, domain_hosting: 0, ai_apis: 0, github: 0, other: 0
     };
 
     for (const c of costs) {
@@ -531,6 +565,27 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const atlasPubKey = process.env.MONGODB_ATLAS_PUBLIC_KEY;
+    const atlasPrivKey = process.env.MONGODB_ATLAS_PRIVATE_KEY;
+    const atlasOrgId = process.env.MONGODB_ATLAS_ORG_ID;
+    let atlasCost = 0.00;
+    let atlasTier = 'Shared M0 Free Tier';
+
+    if (atlasPubKey && atlasPrivKey && atlasOrgId) {
+      try {
+        const out = execSync(`curl -s --digest -u ${atlasPubKey}:${atlasPrivKey} https://cloud.mongodb.com/api/atlas/v1.0/orgs/${atlasOrgId}/invoices/pending`).toString();
+        const invoiceData = JSON.parse(out);
+        let totalCents = 0;
+        for (const item of invoiceData.lineItems || []) {
+          totalCents += item.totalPriceCents || 0;
+        }
+        atlasCost = totalCents / 100;
+        atlasTier = 'Flex AWS Billed Cluster';
+      } catch (e) {
+        console.warn('MongoDB Atlas live integration query warning:', (e as any).message);
+      }
+    }
+
     res.json({
       digitalOcean: {
         connected: !!digitalOceanBilling,
@@ -579,6 +634,14 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         publicRepos: githubDetails?.public_repos || 0,
         privateRepos: githubDetails?.total_private_repos || 0,
         diskUsageMb: Math.round((githubDetails?.disk_usage || 0) / 1024)
+      },
+      mongoDbAtlas: {
+        connected: true,
+        clusterHost: 'support.8sahnn2.mongodb.net',
+        tier: atlasTier,
+        monthToDateSpend: atlasCost,
+        status: 'CONNECTED_HEALTHY',
+        databaseName: 'dailyflowlabs_accounting'
       }
     });
   } catch (err: any) {

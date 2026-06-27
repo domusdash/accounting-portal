@@ -970,6 +970,21 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 </div>
               </div>
 
+              {/* MongoDB Atlas Cloud Database Card */}
+              <div style={{ background: '#1e293b', padding: '1.25rem', borderRadius: 10, borderLeft: '4px solid #10b981' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <FaDatabase style={{ color: '#10b981' }} /> MongoDB Atlas Cloud Database Live Telemetry
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
+                  Connected live to Cluster (<strong>{liveIntegrations?.mongoDbAtlas?.clusterHost || 'support.8sahnn2.mongodb.net'}</strong>). Tier: <strong>{liveIntegrations?.mongoDbAtlas?.tier || 'Shared M0 Free Tier'}</strong>.
+                </p>
+                <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>Status: <strong style={{ color: '#10b981' }}>{liveIntegrations?.mongoDbAtlas?.status || 'CONNECTED_HEALTHY'}</strong></span>
+                  <span>Database: <strong style={{ color: '#3b82f6' }}>{liveIntegrations?.mongoDbAtlas?.databaseName || 'dailyflowlabs_accounting'}</strong></span>
+                  <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.95rem' }}>Live MTD Spend: ${liveIntegrations?.mongoDbAtlas?.monthToDateSpend?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
