@@ -74,8 +74,10 @@ async function fetchLiveApiCosts() {
         else if (appName.includes('blueprint')) matchedOrg = orgSlugMap['blueprintconverter'] || parentOrg;
         else if (appName.includes('freeqrcode')) matchedOrg = orgSlugMap['freeqrcode'] || parentOrg;
         else if (appName.includes('irondial')) matchedOrg = orgSlugMap['irondial'] || parentOrg;
-        else if (appName.includes('shortcode')) matchedOrg = orgSlugMap['short-code-icons'] || parentOrg;
-        else if (appName.includes('dailyflow')) matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
+        else if (appName.includes('shortcode') || appName.includes('carddav')) matchedOrg = orgSlugMap['short-code-icons'] || parentOrg;
+        else if (appName.includes('dailyflow') || appName.includes('accounting') || appName.includes('support') || appName.includes('marketing')) {
+          matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
+        }
 
         liveCosts.push({
           _id: `do_app_${app.id}`,
@@ -139,7 +141,7 @@ async function fetchLiveApiCosts() {
           let matchedOrg = parentOrg;
 
           if (domainName.includes('domusdash')) matchedOrg = orgSlugMap['domusdash'] || parentOrg;
-          else if (domainName.includes('dailyflowlabs')) matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
+          else if (domainName.includes('dailyflow')) matchedOrg = orgSlugMap['daily-flow-labs'] || parentOrg;
           else if (domainName.includes('blueprint')) matchedOrg = orgSlugMap['blueprintconverter'] || parentOrg;
           else if (domainName.includes('shortcode')) matchedOrg = orgSlugMap['short-code-icons'] || parentOrg;
           else if (domainName.includes('thumbverify')) matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
@@ -164,18 +166,31 @@ async function fetchLiveApiCosts() {
     }
   }
 
-  // 3. Resend Email API Live Subscription Query ($20/mo Pro Plan)
+  // 3. Resend Email API Dynamic Plan Query
   const resendKey = process.env.RESEND_API_KEY || 're_AfBeXWUq_DaiVpRyDtsVJhJcqjnLpDWyS';
   if (resendKey) {
-    liveCosts.push({
-      _id: 'resend_pro_subscription',
-      organizationId: { _id: parentOrg._id, name: parentOrg.name, slug: parentOrg.slug },
-      category: 'resend',
-      description: 'Resend Pro Plan Monthly Subscription',
-      amount: 20.00,
-      billingCycle: 'monthly',
-      date: new Date().toISOString()
-    });
+    try {
+      const resendRes = await axios.get('https://api.resend.com/domains', {
+        headers: { Authorization: `Bearer ${resendKey}` }
+      });
+      const domainsList = resendRes.data?.data || [];
+      
+      // Dynamically detect plan tier based on live API capabilities & domain allocations (Free allows 1 domain, Pro allows multi-domain)
+      const isProPlan = domainsList.length > 1;
+      const liveResendCost = isProPlan ? 20.00 : 0.00;
+
+      liveCosts.push({
+        _id: 'resend_live_subscription',
+        organizationId: { _id: parentOrg._id, name: parentOrg.name, slug: parentOrg.slug },
+        category: 'resend',
+        description: `Resend Live Email API (${isProPlan ? 'Pro Plan' : 'Free Tier'})`,
+        amount: liveResendCost,
+        billingCycle: 'monthly',
+        date: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Resend dynamic billing query warning:', (e as any).message);
+    }
   }
 
   // Combine with manually logged database cost entries (if any)
@@ -346,6 +361,8 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const isResendPro = resendDomains.length > 1;
+
     res.json({
       digitalOcean: {
         connected: !!digitalOceanBilling,
@@ -356,8 +373,8 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       },
       resend: {
         connected: true,
-        monthToDateSpend: 20.00,
-        status: 'PRO_PLAN_ACTIVE',
+        monthToDateSpend: isResendPro ? 20.00 : 0.00,
+        status: isResendPro ? 'PRO_PLAN_ACTIVE' : 'FREE_TIER_ACTIVE',
         totalVerifiedDomains: resendDomains.length,
         domains: resendDomains
       },
