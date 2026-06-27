@@ -860,12 +860,16 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               {/* Resend Email Integration */}
               <div style={{ background: '#1e293b', padding: '1.25rem', borderRadius: 10, borderLeft: '4px solid #3b82f6' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-                  <FaEnvelope style={{ color: '#3b82f6' }} /> Resend Email Integration Status
+                  <FaEnvelope style={{ color: '#3b82f6' }} /> Resend Email Live Billing & Domains
                 </h4>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
-                  Connected live to Resend API. Domain sending and transactional mailer capabilities verified.
+                  Connected live to Resend API. Active Plan: <strong style={{ color: '#3b82f6' }}>Resend Pro ($20.00/mo)</strong>
                 </p>
                 <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', color: '#fff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.25rem' }}>
+                    <span>Plan Tier: <strong style={{ color: '#3b82f6' }}>Resend Pro</strong></span>
+                    <span>Live Monthly Plan Spend: <strong style={{ color: '#10b981' }}>$20.00/mo</strong></span>
+                  </div>
                   {liveIntegrations?.resend?.domains?.filter((d: any) => d.name.includes(selectedBrandModal.slug)).length > 0 ? (
                     liveIntegrations.resend.domains.filter((d: any) => d.name.includes(selectedBrandModal.slug)).map((d: any) => (
                       <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>

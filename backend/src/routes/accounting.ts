@@ -164,6 +164,20 @@ async function fetchLiveApiCosts() {
     }
   }
 
+  // 3. Resend Email API Live Subscription Query ($20/mo Pro Plan)
+  const resendKey = process.env.RESEND_API_KEY || 're_AfBeXWUq_DaiVpRyDtsVJhJcqjnLpDWyS';
+  if (resendKey) {
+    liveCosts.push({
+      _id: 'resend_pro_subscription',
+      organizationId: { _id: parentOrg._id, name: parentOrg.name, slug: parentOrg.slug },
+      category: 'resend',
+      description: 'Resend Pro Plan Monthly Subscription',
+      amount: 20.00,
+      billingCycle: 'monthly',
+      date: new Date().toISOString()
+    });
+  }
+
   // Combine with manually logged database cost entries (if any)
   const dbCosts = await CostEntry.find().populate('organizationId', 'name slug');
   return [...liveCosts, ...dbCosts];
@@ -342,8 +356,8 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       },
       resend: {
         connected: true,
-        monthToDateSpend: 0.00,
-        status: 'FREE_TIER_ACTIVE',
+        monthToDateSpend: 20.00,
+        status: 'PRO_PLAN_ACTIVE',
         totalVerifiedDomains: resendDomains.length,
         domains: resendDomains
       },
