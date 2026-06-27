@@ -1,0 +1,59 @@
+name: accounting
+region: nyc
+domains:
+- domain: accounting.dailyflowlabs.com
+  type: PRIMARY
+  zone: dailyflowlabs.com
+ingress:
+  rules:
+  - component:
+      name: accounting-portal-backend
+      preserve_path_prefix: true
+    match:
+      authority:
+        exact: ""
+      path:
+        prefix: /api
+  - component:
+      name: accounting-portal-frontend
+    match:
+      authority:
+        exact: ""
+      path:
+        prefix: /
+services:
+- name: accounting-portal-backend
+  github:
+    repo: domusdash/accounting-portal
+    branch: main
+    deploy_on_push: true
+  source_dir: backend
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  http_port: 8080
+  build_command: npm run build
+  run_command: npm start
+  envs:
+  - key: MONGODB_URI
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+    value: mongodb+srv://benjosephroberts_db_user:H0eBCwDd17I7xWjo@support.8sahnn2.mongodb.net/dailyflowlabs_accounting?retryWrites=true&w=majority&appName=support
+  - key: JWT_SECRET
+    scope: RUN_AND_BUILD_TIME
+    type: SECRET
+    value: accounting_portal_jwt_secret_8899
+  - key: PORT
+    scope: RUN_AND_BUILD_TIME
+    value: "8080"
+static_sites:
+- name: accounting-portal-frontend
+  github:
+    repo: domusdash/accounting-portal
+    branch: main
+    deploy_on_push: true
+  source_dir: frontend
+  environment_slug: node-js
+  build_command: npm run build
+  output_dir: dist
+  catchall_document: index.html
