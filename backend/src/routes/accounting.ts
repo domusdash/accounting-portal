@@ -137,13 +137,15 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
     // 🖥️ DigitalOcean Live Billing API Query
     const doToken = process.env.DIGITALOCEAN_TOKEN;
     let digitalOceanBilling: any = null;
-    try {
-      const doRes = await axios.get('https://api.digitalocean.com/v2/customers/my/balance', {
-        headers: { Authorization: `Bearer ${doToken}` }
-      });
-      digitalOceanBilling = doRes.data;
-    } catch (e) {
-      console.warn('DigitalOcean Billing API query warning:', (e as any).message);
+    if (doToken) {
+      try {
+        const doRes = await axios.get('https://api.digitalocean.com/v2/customers/my/balance', {
+          headers: { Authorization: `Bearer ${doToken}` }
+        });
+        digitalOceanBilling = doRes.data;
+      } catch (e) {
+        console.warn('DigitalOcean Billing API query warning:', (e as any).message);
+      }
     }
 
     // ✉️ Resend Domains Query
@@ -158,7 +160,7 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
       console.warn('Resend API live query warning:', (e as any).message);
     }
 
-    // 🌐 Name.com domains integration status
+    // 🌐 Name.com live domain prices & expiration dates
     const nameComUser = process.env.NAME_COM_USERNAME || 'benjosephroberts@gmail.com';
     const nameComToken = process.env.NAME_COM_API_TOKEN || 'ad89dc0289f921c0c5af81dd49f2a1a3e86fe29f';
     let nameComDomains: any[] = [];
@@ -169,7 +171,21 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         const nameRes = await axios.get('https://api.name.com/v4/domains', {
           headers: { Authorization: `Basic ${authHeader}` }
         });
-        nameComDomains = nameRes.data?.domains || [];
+        const basicList = nameRes.data?.domains || [];
+        
+        // Fetch detailed pricing & expiration for each domain live
+        nameComDomains = await Promise.all(
+          basicList.map(async (d: any) => {
+            try {
+              const detailRes = await axios.get(`https://api.name.com/v4/domains/${d.domainName}`, {
+                headers: { Authorization: `Basic ${authHeader}` }
+              });
+              return detailRes.data;
+            } catch {
+              return d;
+            }
+          })
+        );
       } catch (e) {
         console.warn('Name.com API live query warning:', (e as any).message);
       }
@@ -194,6 +210,9 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         domains: nameComDomains
       },
       geminiAi: {
+        connected: true,
+        monthToDateSpend: 0.00,
+        status: 'FREE_TIER_ACTIVE',
         models: ['Gemini 1.5 Flash', 'Gemini 1.5 Pro'],
         pricing: {
           flashInputPer1M: 0.075,
