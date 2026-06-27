@@ -3,7 +3,8 @@ import toast from 'react-hot-toast';
 import { 
   FaServer, FaDatabase, FaEnvelope, FaBullhorn, FaGlobe, FaRobot, FaCoins,
   FaWallet, FaChartLine, FaPlus, FaTrashAlt, FaUsers, FaUserPlus, 
-  FaToggleOn, FaToggleOff, FaSignOutAlt, FaUserCircle, FaBuilding, FaSearch, FaExternalLinkAlt, FaTimes
+  FaToggleOn, FaToggleOff, FaSignOutAlt, FaUserCircle, FaBuilding, FaSearch, FaExternalLinkAlt, FaTimes,
+  FaChevronLeft, FaChevronRight, FaCalendarAlt
 } from 'react-icons/fa';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
@@ -46,6 +47,7 @@ interface UserItem {
 }
 
 interface OverviewData {
+  timeframe: string;
   totalRevenue: number;
   totalCosts: number;
   netProfit: number;
@@ -89,6 +91,12 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'Other Revenue'
 };
 
+const MONTH_NAMES = [
+  'January 2026', 'February 2026', 'March 2026', 'April 2026', 
+  'May 2026', 'June 2026', 'July 2026', 'August 2026', 
+  'September 2026', 'October 2026', 'November 2026', 'December 2026'
+];
+
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'];
 
 export default function Dashboard({ user, onLogout }: DashboardProps) {
@@ -97,6 +105,10 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue' | 'users'>('overview');
   const [loading, setLoading] = useState<boolean>(true);
   
+  // Timeframe & Month Navigation
+  const [timeframe, setTimeframe] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(5); // Default to June 2026 (current month)
+
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [costsList, setCostsList] = useState<CostItem[]>([]);
   const [revenueList, setRevenueList] = useState<RevenueItem[]>([]);
@@ -129,7 +141,6 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       let activeId = localStorage.getItem('selectedOrganizationId') || '';
       const parent = res.data.find((o: any) => o.isParent);
       
-      // If no valid active ID or if opening portal fresh, default to parent aggregated view
       if (!activeId || !res.data.some((o: any) => o._id === activeId || `${o._id}__all` === activeId)) {
         if (parent) {
           activeId = `${parent._id}__all`;
@@ -150,7 +161,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     setLoading(true);
     try {
       const [overRes, costRes, revRes, userRes, liveRes] = await Promise.all([
-        api.get('/accounting/overview'),
+        api.get(`/accounting/overview?timeframe=${timeframe}`),
         api.get('/accounting/costs'),
         api.get('/accounting/revenue'),
         api.get('/users'),
@@ -177,7 +188,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     if (selectedOrgId) {
       fetchFinancialData();
     }
-  }, [selectedOrgId]);
+  }, [selectedOrgId, timeframe, selectedMonthIdx]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -355,13 +366,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       <main style={{ flex: 1, padding: '2rem', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
         
         {/* Title Bar & Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
               Financial Intelligence & Accounting
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
-              Cost vs. Return analysis across DigitalOcean droplets, MongoDB Atlas clusters, Resend emails, Ad campaigns, and AdSense revenue.
+              Live server billings, domain renewals, email API usage, and monetization P&L.
             </p>
           </div>
 
@@ -375,13 +386,81 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           </div>
         </div>
 
+        {/* TIMEFRAME SWITCHER & MONTH JUMPING NAVIGATOR */}
+        <div className="glass-panel" style={{ padding: '0.85rem 1.25rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          
+          {/* Monthly vs. Annual Toggle Switch */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#0f172a', padding: '4px', borderRadius: '10px' }}>
+            <button
+              onClick={() => setTimeframe('monthly')}
+              style={{
+                padding: '0.45rem 1rem', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+                background: timeframe === 'monthly' ? 'var(--primary)' : 'transparent',
+                color: timeframe === 'monthly' ? '#fff' : 'var(--text-muted)',
+                transition: 'all 0.2s'
+              }}
+            >
+              🗓️ Monthly Run-Rate
+            </button>
+            <button
+              onClick={() => setTimeframe('annual')}
+              style={{
+                padding: '0.45rem 1rem', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+                background: timeframe === 'annual' ? '#6366f1' : 'transparent',
+                color: timeframe === 'annual' ? '#fff' : 'var(--text-muted)',
+                transition: 'all 0.2s'
+              }}
+            >
+              📈 Annualized Projections
+            </button>
+          </div>
+
+          {/* Month Jumping Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={() => setSelectedMonthIdx(Math.max(0, selectedMonthIdx - 1))}
+              disabled={selectedMonthIdx === 0}
+              style={{ background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, padding: '0.5rem 0.75rem', cursor: selectedMonthIdx === 0 ? 'not-allowed' : 'pointer', opacity: selectedMonthIdx === 0 ? 0.4 : 1 }}
+              title="Previous Month"
+            >
+              <FaChevronLeft size={12} />
+            </button>
+
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid var(--glass-border)', padding: '0.45rem 1rem', borderRadius: 8 }}>
+              <FaCalendarAlt style={{ color: 'var(--primary)', marginRight: 8 }} />
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
+                {MONTH_NAMES[selectedMonthIdx]}
+              </span>
+              <select
+                value={selectedMonthIdx}
+                onChange={(e) => setSelectedMonthIdx(Number(e.target.value))}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+              >
+                {MONTH_NAMES.map((m, idx) => (
+                  <option key={m} value={idx}>{m}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: 8 }}>▼</span>
+            </div>
+
+            <button
+              onClick={() => setSelectedMonthIdx(Math.min(MONTH_NAMES.length - 1, selectedMonthIdx + 1))}
+              disabled={selectedMonthIdx === MONTH_NAMES.length - 1}
+              style={{ background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, padding: '0.5rem 0.75rem', cursor: selectedMonthIdx === MONTH_NAMES.length - 1 ? 'not-allowed' : 'pointer', opacity: selectedMonthIdx === MONTH_NAMES.length - 1 ? 0.4 : 1 }}
+              title="Next Month"
+            >
+              <FaChevronRight size={12} />
+            </button>
+          </div>
+        </div>
+
         {/* Executive KPI Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
           
           {/* Revenue */}
           <div className="glass-panel kpi-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>
-              <span>Total Gross Revenue</span>
+              <span>{timeframe === 'annual' ? 'Annualized Revenue' : 'Monthly Gross Revenue'}</span>
               <FaWallet style={{ color: '#10b981' }} />
             </div>
             <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#10b981' }}>
@@ -393,7 +472,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           {/* Infrastructure Costs */}
           <div className="glass-panel kpi-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>
-              <span>Total Server & Ops Costs</span>
+              <span>{timeframe === 'annual' ? 'Annualized Server & Ops' : 'Monthly Server & Ops'}</span>
               <FaServer style={{ color: '#ef4444' }} />
             </div>
             <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#ef4444' }}>
@@ -405,7 +484,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           {/* Net Profit / Loss */}
           <div className="glass-panel kpi-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>
-              <span>Net Studio Profit</span>
+              <span>{timeframe === 'annual' ? 'Projected Annual Net Profit' : 'Monthly Net Studio Profit'}</span>
               <FaChartLine style={{ color: (overview?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444' }} />
             </div>
             <div style={{ fontSize: '1.9rem', fontWeight: 800, color: (overview?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
@@ -479,7 +558,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               {/* Cost Breakdown */}
               <div className="glass-panel" style={{ padding: '1.5rem' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>
-                  Infrastructure Cost Allocation
+                  Infrastructure Cost Allocation ({timeframe === 'annual' ? 'Annual Projections' : 'Monthly'})
                 </h3>
                 {costChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
@@ -501,7 +580,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               {/* Revenue Breakdown */}
               <div className="glass-panel" style={{ padding: '1.5rem' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '1rem', color: '#fff' }}>
-                  Monetization Revenue Streams
+                  Monetization Revenue Streams ({timeframe === 'annual' ? 'Annual Projections' : 'Monthly'})
                 </h3>
                 {revenueChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
@@ -525,7 +604,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             {selectedOrgId.endsWith('__all') && overview?.brandBreakdown && (
               <div className="glass-panel" style={{ padding: '1.5rem' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.25rem', color: '#fff' }}>
-                  Per-Brand Financial Return Breakdown
+                  Per-Brand Financial Return Breakdown ({timeframe === 'annual' ? 'Annualized Projections' : 'Monthly Run-Rate'})
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>
                   💡 Click on any brand to view live Resend email status, Name.com domain allocations, and Gemini AI token costs.
@@ -745,15 +824,15 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             {/* Financial Overview Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ background: '#1e293b', padding: '1rem', borderRadius: 10 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>REVENUE</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>REVENUE ({timeframe.toUpperCase()})</span>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', margin: '4px 0 0' }}>${selectedBrandModal.revenue.toFixed(2)}</p>
               </div>
               <div style={{ background: '#1e293b', padding: '1rem', borderRadius: 10 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>OPERATING COSTS</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>OPERATING COSTS ({timeframe.toUpperCase()})</span>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444', margin: '4px 0 0' }}>${selectedBrandModal.costs.toFixed(2)}</p>
               </div>
               <div style={{ background: '#1e293b', padding: '1rem', borderRadius: 10 }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>NET RETURN</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>NET RETURN ({timeframe.toUpperCase()})</span>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: selectedBrandModal.net >= 0 ? '#10b981' : '#ef4444', margin: '4px 0 0' }}>
                   ${selectedBrandModal.net.toFixed(2)}
                 </p>

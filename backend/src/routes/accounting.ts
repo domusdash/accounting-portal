@@ -40,56 +40,60 @@ router.use(async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// GET /api/accounting/overview - Aggregated financial metrics and charts
+// GET /api/accounting/overview - Aggregated financial metrics, month jump & annual projections
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
   const isAggregated = (req as any).isAggregated;
+  const timeframe = (req.query.timeframe as string) || 'monthly'; // 'monthly' | 'annual'
 
   try {
-    const filter = isAggregated ? {} : { organizationId: org._id };
+    const filter: any = isAggregated ? {} : { organizationId: org._id };
 
     const costs = await CostEntry.find(filter).populate('organizationId', 'name slug');
     const revenues = await RevenueEntry.find(filter).populate('organizationId', 'name slug');
 
-    const totalCosts = costs.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-    const totalRevenue = revenues.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    // Calculate monthly totals and annualized run rates
+    let totalCosts = 0;
+    let categoryBreakdown: Record<string, number> = {
+      digital_ocean: 0, mongodb_atlas: 0, resend: 0, ad_spend: 0, domain_hosting: 0, ai_apis: 0, other: 0
+    };
+
+    for (const c of costs) {
+      let amt = c.amount || 0;
+      if (timeframe === 'annual') {
+        // If viewing annual projection, multiply monthly expenses by 12
+        if (c.billingCycle === 'monthly') amt = amt * 12;
+      } else {
+        // If viewing monthly view, divide annual renewals by 12 for accurate monthly cost allocation
+        if (c.billingCycle === 'annual') amt = amt / 12;
+      }
+      totalCosts += amt;
+      if (c.category in categoryBreakdown) {
+        categoryBreakdown[c.category] += amt;
+      } else {
+        categoryBreakdown.other += amt;
+      }
+    }
+
+    let totalRevenue = 0;
+    let revenueSourceBreakdown: Record<string, number> = {
+      google_adsense: 0, stripe_subscriptions: 0, affiliate: 0, direct_sales: 0, other: 0
+    };
+
+    for (const r of revenues) {
+      let amt = r.amount || 0;
+      if (timeframe === 'annual') amt = amt * 12;
+      totalRevenue += amt;
+      if (r.source in revenueSourceBreakdown) {
+        revenueSourceBreakdown[r.source] += amt;
+      } else {
+        revenueSourceBreakdown.other += amt;
+      }
+    }
+
     const netProfit = totalRevenue - totalCosts;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const roi = totalCosts > 0 ? (netProfit / totalCosts) * 100 : 0;
-
-    // Costs by category breakdown
-    const categoryBreakdown: Record<string, number> = {
-      digital_ocean: 0,
-      mongodb_atlas: 0,
-      resend: 0,
-      ad_spend: 0,
-      domain_hosting: 0,
-      ai_apis: 0,
-      other: 0
-    };
-    for (const c of costs) {
-      if (c.category in categoryBreakdown) {
-        categoryBreakdown[c.category] += c.amount;
-      } else {
-        categoryBreakdown.other += c.amount;
-      }
-    }
-
-    // Revenue by source breakdown
-    const revenueSourceBreakdown: Record<string, number> = {
-      google_adsense: 0,
-      stripe_subscriptions: 0,
-      affiliate: 0,
-      direct_sales: 0,
-      other: 0
-    };
-    for (const r of revenues) {
-      if (r.source in revenueSourceBreakdown) {
-        revenueSourceBreakdown[r.source] += r.amount;
-      } else {
-        revenueSourceBreakdown.other += r.amount;
-      }
-    }
 
     // Per Brand Breakdown (if aggregated)
     const brandBreakdown: Record<string, { id: string; name: string; slug: string; costs: number; revenue: number; net: number }> = {};
@@ -103,20 +107,26 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       for (const c of costs) {
         const idStr = c.organizationId?._id?.toString() || c.organizationId?.toString();
         if (idStr && brandBreakdown[idStr]) {
-          brandBreakdown[idStr].costs += c.amount;
-          brandBreakdown[idStr].net -= c.amount;
+          let amt = c.amount || 0;
+          if (timeframe === 'annual' && c.billingCycle === 'monthly') amt *= 12;
+          if (timeframe === 'monthly' && c.billingCycle === 'annual') amt /= 12;
+          brandBreakdown[idStr].costs += amt;
+          brandBreakdown[idStr].net -= amt;
         }
       }
       for (const r of revenues) {
         const idStr = r.organizationId?._id?.toString() || r.organizationId?.toString();
         if (idStr && brandBreakdown[idStr]) {
-          brandBreakdown[idStr].revenue += r.amount;
-          brandBreakdown[idStr].net += r.amount;
+          let amt = r.amount || 0;
+          if (timeframe === 'annual') amt *= 12;
+          brandBreakdown[idStr].revenue += amt;
+          brandBreakdown[idStr].net += amt;
         }
       }
     }
 
     res.json({
+      timeframe,
       totalRevenue,
       totalCosts,
       netProfit,
@@ -173,7 +183,6 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         });
         const basicList = nameRes.data?.domains || [];
         
-        // Fetch detailed pricing & expiration for each domain live
         nameComDomains = await Promise.all(
           basicList.map(async (d: any) => {
             try {
