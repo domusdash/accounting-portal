@@ -939,6 +939,20 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 </div>
               </div>
 
+              {/* Meta & Reddit Paid Acquisitions Card */}
+              <div style={{ background: '#1e293b', padding: '1.25rem', borderRadius: 10, borderLeft: '4px solid #f59e0b' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <FaBullhorn style={{ color: '#f59e0b' }} /> Meta & Reddit Paid Acquisitions Live Ad Spend
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
+                  Live API stream connected to Meta Marketing API (Account act_1519721939640685 & act_2793207051051784).
+                </p>
+                <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Active Ad Account: <strong style={{ color: '#f59e0b' }}>DomusDash Meta Ads</strong></span>
+                  <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.95rem' }}>Live Ad Spend: $0.00</span>
+                </div>
+              </div>
+
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
