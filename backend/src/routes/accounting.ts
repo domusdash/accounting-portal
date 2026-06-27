@@ -237,4 +237,15 @@ router.delete('/revenue/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/accounting/reset-ledger - Wipe sample entries to start 100% clean
+router.post('/reset-ledger', async (req: AuthRequest, res: Response) => {
+  try {
+    await CostEntry.deleteMany({});
+    await RevenueEntry.deleteMany({});
+    res.json({ message: 'Ledger reset successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to reset ledger' });
+  }
+});
+
 export default router;
