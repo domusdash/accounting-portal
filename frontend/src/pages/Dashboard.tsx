@@ -127,17 +127,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       const res = await api.get('/organizations');
       setOrganizations(res.data);
       let activeId = localStorage.getItem('selectedOrganizationId') || '';
+      const parent = res.data.find((o: any) => o.isParent);
+      
+      // If no valid active ID or if opening portal fresh, default to parent aggregated view
       if (!activeId || !res.data.some((o: any) => o._id === activeId || `${o._id}__all` === activeId)) {
-        const parent = res.data.find((o: any) => o.isParent);
         if (parent) {
           activeId = `${parent._id}__all`;
         } else if (res.data.length > 0) {
           activeId = res.data[0]._id;
         }
-        if (activeId) {
-          localStorage.setItem('selectedOrganizationId', activeId);
-          setSelectedOrgId(activeId);
-        }
+      }
+      if (activeId) {
+        localStorage.setItem('selectedOrganizationId', activeId);
+        setSelectedOrgId(activeId);
       }
     } catch (err) {
       console.error(err);
