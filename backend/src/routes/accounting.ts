@@ -339,6 +339,51 @@ async function fetchLiveApiRevenue() {
     }
   }
 
+  // Google AdSense Dynamic Revenue Integration
+  const adsenseAccountId = process.env.GOOGLE_ADSENSE_ACCOUNT_ID || 'pub-1064467239180848';
+  const adsenseRefreshToken = process.env.GOOGLE_ADSENSE_REFRESH_TOKEN;
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (adsenseRefreshToken && googleClientId && googleClientSecret) {
+    try {
+      const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        refresh_token: adsenseRefreshToken,
+        grant_type: 'refresh_token'
+      });
+      const accessToken = tokenRes.data?.access_token;
+      if (accessToken) {
+        const reportRes = await axios.get(`https://adsense.googleapis.com/v2/accounts/${adsenseAccountId}/reports:generate`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            dateRange: 'THIS_MONTH',
+            metrics: ['ESTIMATED_EARNINGS'],
+            dimensions: ['MONTH']
+          }
+        });
+        const rows = reportRes.data?.rows || [];
+        for (const row of rows) {
+          const earnings = parseFloat(row.cells?.[1]?.value || '0');
+          if (earnings > 0) {
+            const matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+            liveRevenues.push({
+              _id: `adsense_live_earnings_${row.cells?.[0]?.value || 'month'}`,
+              organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+              source: 'google_adsense',
+              description: `Google AdSense Monetization Earnings (${adsenseAccountId})`,
+              amount: earnings,
+              date: new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Google AdSense API dynamic revenue query warning:', (e as any).message);
+    }
+  }
+
   const dbRevenues = await RevenueEntry.find().populate('organizationId', 'name slug');
   return [...liveRevenues, ...dbRevenues];
 }
@@ -642,6 +687,11 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         monthToDateSpend: atlasCost,
         status: 'CONNECTED_HEALTHY',
         databaseName: 'dailyflowlabs_accounting'
+      },
+      googleAdsense: {
+        connected: !!process.env.GOOGLE_ADSENSE_REFRESH_TOKEN,
+        publisherId: process.env.GOOGLE_ADSENSE_ACCOUNT_ID || 'ca-pub-1064467239180848',
+        status: process.env.GOOGLE_ADSENSE_REFRESH_TOKEN ? 'LIVE_REPORTING_ACTIVE' : 'CREDENTIALS_PENDING'
       }
     });
   } catch (err: any) {
