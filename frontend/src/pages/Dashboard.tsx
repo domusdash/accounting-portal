@@ -277,9 +277,14 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     return (
       <>
         {parent && (
-          <option value={`${parent._id}__all`}>
-            🌐 {parent.name} (All Aggregated Studio Apps)
-          </option>
+          <>
+            <option value={`${parent._id}__all`}>
+              🌐 {parent.name} (All Aggregated Studio Brands)
+            </option>
+            <option value={parent._id}>
+              🏢 {parent.name} (Individual Studio Operations)
+            </option>
+          </>
         )}
         {parent && <option disabled>──────────</option>}
         {children.map(c => (
@@ -321,7 +326,11 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <FaBuilding style={{ color: 'var(--primary)', marginRight: 6 }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
-              {selectedOrgId.endsWith('__all') ? `${activeOrg?.name || 'Daily Flow'} (All Aggregated)` : activeOrg?.name || 'Select Brand'}
+              {selectedOrgId.endsWith('__all')
+                ? `${activeOrg?.name || 'Daily Flow'} (Aggregated Studio)`
+                : activeOrg?.isParent
+                ? `${activeOrg?.name} (Individual Operations)`
+                : activeOrg?.name || 'Select Brand'}
             </span>
             <select
               value={selectedOrgId}
