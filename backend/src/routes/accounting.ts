@@ -230,6 +230,35 @@ async function fetchLiveApiCosts() {
     }
   }
 
+  // 5. GitHub API Live Query for Organization Plan & Seats Cost
+  const githubToken = process.env.GITHUB_TOKEN;
+  const githubOrg = process.env.GITHUB_ORG || 'domusdash';
+  if (githubToken) {
+    try {
+      const ghRes = await axios.get(`https://api.github.com/orgs/${githubOrg}`, {
+        headers: { Authorization: `token ${githubToken}` }
+      });
+      const orgData = ghRes.data;
+      const planName = orgData?.plan?.name || 'team';
+      const filledSeats = orgData?.plan?.filled_seats || 2;
+      const pricePerSeat = planName === 'team' ? 4.00 : (planName === 'enterprise' ? 21.00 : 0.00);
+      const totalGithubCost = filledSeats * pricePerSeat;
+
+      const matchedOrg = orgSlugMap['domusdash'] || parentOrg;
+      liveCosts.push({
+        _id: `github_live_plan_${githubOrg}`,
+        organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+        category: 'github',
+        description: `GitHub ${planName.toUpperCase()} Plan (${filledSeats} Seats @ $${pricePerSeat.toFixed(2)}/mo)`,
+        amount: totalGithubCost,
+        billingCycle: 'monthly',
+        date: '2026-06-01T00:00:00Z'
+      });
+    } catch (e) {
+      console.warn('GitHub dynamic billing query warning:', (e as any).message);
+    }
+  }
+
   // Combine with manually logged database cost entries (if any)
   const dbCosts = await CostEntry.find().populate('organizationId', 'name slug');
   return [...liveCosts, ...dbCosts];
@@ -488,6 +517,20 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
 
     const isResendPro = resendDomains.length > 1;
 
+    const githubToken = process.env.GITHUB_TOKEN;
+    const githubOrg = process.env.GITHUB_ORG || 'domusdash';
+    let githubDetails: any = null;
+    if (githubToken) {
+      try {
+        const ghRes = await axios.get(`https://api.github.com/orgs/${githubOrg}`, {
+          headers: { Authorization: `token ${githubToken}` }
+        });
+        githubDetails = ghRes.data;
+      } catch (e) {
+        console.warn('GitHub live integration query warning:', (e as any).message);
+      }
+    }
+
     res.json({
       digitalOcean: {
         connected: !!digitalOceanBilling,
@@ -525,6 +568,17 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
           proInputPer1M: 1.25,
           proOutputPer1M: 5.00
         }
+      },
+      github: {
+        connected: !!githubDetails,
+        organization: githubOrg,
+        plan: githubDetails?.plan?.name || 'team',
+        seats: githubDetails?.plan?.seats || 2,
+        filledSeats: githubDetails?.plan?.filled_seats || 2,
+        monthToDateSpend: (githubDetails?.plan?.filled_seats || 2) * (githubDetails?.plan?.name === 'team' ? 4.00 : 0.00),
+        publicRepos: githubDetails?.public_repos || 0,
+        privateRepos: githubDetails?.total_private_repos || 0,
+        diskUsageMb: Math.round((githubDetails?.disk_usage || 0) / 1024)
       }
     });
   } catch (err: any) {

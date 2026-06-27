@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface ICostEntry extends Document {
   organizationId: Types.ObjectId;
-  category: 'digital_ocean' | 'mongodb_atlas' | 'resend' | 'ad_spend' | 'domain_hosting' | 'ai_apis' | 'other';
+  category: 'digital_ocean' | 'mongodb_atlas' | 'resend' | 'ad_spend' | 'domain_hosting' | 'ai_apis' | 'github' | 'other';
   description: string;
   amount: number; // in USD
   billingCycle: 'monthly' | 'one_time' | 'annual';
@@ -17,7 +17,7 @@ const CostEntrySchema: Schema = new Schema({
   category: { 
     type: String, 
     required: true, 
-    enum: ['digital_ocean', 'mongodb_atlas', 'resend', 'ad_spend', 'domain_hosting', 'ai_apis', 'other'],
+    enum: ['digital_ocean', 'mongodb_atlas', 'resend', 'ad_spend', 'domain_hosting', 'ai_apis', 'github', 'other'],
     index: true 
   },
   description: { type: String, required: true },

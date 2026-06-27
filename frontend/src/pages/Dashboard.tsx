@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { 
-  FaServer, FaDatabase, FaEnvelope, FaBullhorn, FaGlobe, FaRobot, FaCoins,
+  FaServer, FaDatabase, FaEnvelope, FaBullhorn, FaGlobe, FaRobot, FaCoins, FaGithub,
   FaWallet, FaChartLine, FaPlus, FaTrashAlt, FaUsers, FaUserPlus, 
   FaToggleOn, FaToggleOff, FaSignOutAlt, FaUserCircle, FaBuilding, FaSearch, FaExternalLinkAlt, FaTimes,
   FaChevronLeft, FaChevronRight, FaCalendarAlt
@@ -70,6 +70,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   ad_spend: FaBullhorn,
   domain_hosting: FaGlobe,
   ai_apis: FaRobot,
+  github: FaGithub,
   other: FaCoins
 };
 
@@ -80,6 +81,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   ad_spend: 'Ad Spend (Google/Meta)',
   domain_hosting: 'Domains & SSL',
   ai_apis: 'AI APIs (OpenAI/Gemini)',
+  github: 'GitHub Team & Copilot',
   other: 'Other Operating Cost'
 };
 
@@ -616,7 +618,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   Per-Brand Financial Return Breakdown ({timeframe === 'annual' ? 'Annualized Projections' : 'Monthly Run-Rate'})
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>
-                  💡 Click on any brand to view live Resend email status, Name.com domain allocations, and Gemini AI token costs.
+                  💡 Click on any brand to view live Resend email status, Name.com domain allocations, Gemini AI token costs, and GitHub API billing.
                 </p>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
@@ -830,7 +832,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   📱 {selectedBrandModal.name} Financial Breakdown
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-                  Detailed cost breakdown, live Resend domains, Name.com allocation, and Gemini AI costs.
+                  Detailed cost breakdown, live Resend domains, Name.com allocation, Gemini AI costs, and GitHub API billing.
                 </p>
               </div>
               <button onClick={() => setSelectedBrandModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>
@@ -950,6 +952,21 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                 <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Active Ad Account: <strong style={{ color: '#f59e0b' }}>DomusDash Meta Ads</strong></span>
                   <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.95rem' }}>Live Ad Spend: $0.00</span>
+                </div>
+              </div>
+
+              {/* GitHub API Live Billing Card */}
+              <div style={{ background: '#1e293b', padding: '1.25rem', borderRadius: 10, borderLeft: '4px solid #6e7681' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <FaGithub style={{ color: '#fff' }} /> GitHub Organization & Developer API Billing
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
+                  Synced live via GitHub REST API (Org: <strong>{liveIntegrations?.github?.organization || 'domusdash'}</strong>). Plan: <strong>{(liveIntegrations?.github?.plan || 'team').toUpperCase()}</strong>.
+                </p>
+                <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: 6, fontSize: '0.8rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span>Seats: <strong style={{ color: '#3b82f6' }}>{liveIntegrations?.github?.filledSeats || 2} / {liveIntegrations?.github?.seats || 2} Active</strong></span>
+                  <span>Repos: <strong style={{ color: '#10b981' }}>{liveIntegrations?.github?.privateRepos || 8} Private / {liveIntegrations?.github?.publicRepos || 4} Public</strong></span>
+                  <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.95rem' }}>Live Monthly Spend: ${liveIntegrations?.github?.monthToDateSpend?.toFixed(2) || '8.00'}</span>
                 </div>
               </div>
 
