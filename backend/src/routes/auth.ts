@@ -1,40 +1,68 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 
 const router = Router();
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '977344195641-kh2se29jgfmvn9hmdv1oirtu4hlul8j7.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// POST /api/auth/login
-router.post('/login', async (req: AuthRequest, res: Response) => {
+const generateToken = (user: any) => {
+  const JWT_SECRET = process.env.JWT_SECRET || 'accounting_portal_jwt_secret_8899';
+  return jwt.sign(
+    { userId: user._id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+};
+
+// POST /api/auth/google
+router.post('/google', async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: 'Google credential token is required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    let payload: any;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID
+      });
+      payload = ticket.getPayload();
+    } catch (verifErr) {
+      return res.status(401).json({ error: 'Invalid Google authentication token' });
+    }
+
+    if (!payload || !payload.email) {
+      return res.status(400).json({ error: 'Invalid Google user payload' });
+    }
+
+    const email = payload.email.toLowerCase().trim();
+    let user = await User.findOne({ email });
+
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      // Auto-register superadmin Ben Roberts or check if studio email
+      if (email === 'benjosephroberts@gmail.com') {
+        user = new User({
+          email,
+          name: payload.name || 'Ben Roberts',
+          role: 'superadmin'
+        });
+        await user.save();
+      } else {
+        return res.status(403).json({ error: 'Access Denied: Your Google account is not authorized for accounting access. Please ask an admin to add your email.' });
+      }
     }
 
     if (user.disabled) {
-      return res.status(403).json({ error: 'Account disabled' });
+      return res.status(403).json({ error: 'Account is disabled. Contact your administrator.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    const JWT_SECRET = process.env.JWT_SECRET || 'accounting_portal_jwt_secret_8899';
-    const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
+    const token = generateToken(user);
     res.json({
       token,
       user: {
@@ -45,7 +73,7 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: 'Google login failed' });
   }
 });
 

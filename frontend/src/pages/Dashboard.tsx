@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { 
   FaServer, FaBullhorn, FaEnvelope, FaDatabase, FaGlobe, FaRobot, FaCoins,
   FaPlus, FaTrashAlt, FaChartLine, FaArrowUp, FaArrowDown, 
-  FaWallet, FaUserCircle, FaSignOutAlt, FaSlidersH
+  FaWallet, FaUserCircle, FaSignOutAlt, FaUsers, FaUserPlus, FaToggleOn, FaToggleOff
 } from 'react-icons/fa';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
@@ -36,6 +36,14 @@ interface RevenueItem {
   amount: number;
   date: string;
   notes?: string;
+}
+
+interface UserItem {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  disabled?: boolean;
 }
 
 interface OverviewData {
@@ -87,34 +95,30 @@ const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5
 export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue' | 'users'>('overview');
   const [loading, setLoading] = useState<boolean>(true);
   
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [costsList, setCostsList] = useState<CostItem[]>([]);
   const [revenueList, setRevenueList] = useState<RevenueItem[]>([]);
+  const [usersList, setUsersList] = useState<UserItem[]>([]);
 
   // Modals
   const [showCostModal, setShowCostModal] = useState<boolean>(false);
   const [showRevModal, setShowRevModal] = useState<boolean>(false);
+  const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState<boolean>(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
-  // New Cost Form State
+  // Form States
   const [costForm, setCostForm] = useState({
-    category: 'digital_ocean',
-    description: '',
-    amount: '',
-    billingCycle: 'monthly',
-    targetOrganizationId: ''
+    category: 'digital_ocean', description: '', amount: '', billingCycle: 'monthly', targetOrganizationId: ''
   });
-
-  // New Revenue Form State
   const [revForm, setRevForm] = useState({
-    source: 'google_adsense',
-    description: '',
-    amount: '',
-    targetOrganizationId: ''
+    source: 'google_adsense', description: '', amount: '', targetOrganizationId: ''
+  });
+  const [userForm, setUserForm] = useState({
+    name: '', email: '', role: 'admin'
   });
 
   const fetchOrganizations = async () => {
@@ -140,17 +144,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const fetchFinancialData = async () => {
     setLoading(true);
     try {
-      const [overRes, costRes, revRes] = await Promise.all([
+      const [overRes, costRes, revRes, userRes] = await Promise.all([
         api.get('/accounting/overview'),
         api.get('/accounting/costs'),
-        api.get('/accounting/revenue')
+        api.get('/accounting/revenue'),
+        api.get('/users')
       ]);
       setOverview(overRes.data);
       setCostsList(costRes.data);
       setRevenueList(revRes.data);
+      setUsersList(userRes.data);
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load financial ledger data');
+      toast.error('Failed to load portal data');
     } finally {
       setLoading(false);
     }
@@ -226,6 +232,40 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       fetchFinancialData();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to add revenue item');
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/users', userForm);
+      toast.success('Authorized user added!');
+      setShowUserModal(false);
+      setUserForm({ name: '', email: '', role: 'admin' });
+      fetchFinancialData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to add user');
+    }
+  };
+
+  const handleToggleDisableUser = async (id: string) => {
+    try {
+      await api.put(`/users/${id}/toggle-disabled`);
+      toast.success('User access updated');
+      fetchFinancialData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to remove this authorized user?')) return;
+    try {
+      await api.delete(`/users/${id}`);
+      toast.success('User removed');
+      fetchFinancialData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to remove user');
     }
   };
 
@@ -404,7 +444,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           {[
             { id: 'overview', label: 'Financial Overview & Charts' },
             { id: 'costs', label: `Cost Ledger (${costsList.length})` },
-            { id: 'revenue', label: `Revenue Ledger (${revenueList.length})` }
+            { id: 'revenue', label: `Revenue Ledger (${revenueList.length})` },
+            { id: 'users', label: `Team Members (${usersList.length})` }
           ].map(tab => (
             <button
               key={tab.id}
@@ -604,6 +645,59 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
           </div>
         )}
+
+        {/* TAB 4: TEAM MEMBERS */}
+        {activeTab === 'users' && (
+          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+                Authorized Team Members & Google Login Access
+              </h3>
+              <button className="btn-primary" onClick={() => setShowUserModal(true)}>
+                <FaUserPlus /> Add Team Member
+              </button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.75rem' }}>Name</th>
+                    <th style={{ padding: '0.75rem' }}>Authorized Google Email</th>
+                    <th style={{ padding: '0.75rem' }}>Role</th>
+                    <th style={{ padding: '0.75rem' }}>Status</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersList.map(u => (
+                    <tr key={u._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ padding: '0.75rem', color: '#fff', fontWeight: 600 }}>{u.name}</td>
+                      <td style={{ padding: '0.75rem', color: 'var(--text-secondary)' }}>{u.email}</td>
+                      <td style={{ padding: '0.75rem', textTransform: 'capitalize', color: 'var(--primary)', fontWeight: 600 }}>{u.role}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span style={{
+                          padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700,
+                          background: u.disabled ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                          color: u.disabled ? '#ef4444' : '#10b981'
+                        }}>
+                          {u.disabled ? 'DISABLED' : 'ACTIVE'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button onClick={() => handleToggleDisableUser(u._id)} style={{ background: 'transparent', border: 'none', color: u.disabled ? '#10b981' : '#f59e0b', cursor: 'pointer' }}>
+                          {u.disabled ? <FaToggleOff style={{ fontSize: '1.2rem' }} /> : <FaToggleOn style={{ fontSize: '1.2rem' }} />}
+                        </button>
+                        <button onClick={() => handleDeleteUser(u._id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                          <FaTrashAlt />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* MODAL: ADD COST */}
@@ -749,6 +843,57 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
                 <button type="button" className="btn-secondary" onClick={() => setShowRevModal(false)}>Cancel</button>
                 <button type="submit" className="btn-primary">Save Revenue Entry</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD AUTHORIZED USER */}
+      {showUserModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, backdropFilter: 'blur(4px)' }}>
+          <div className="glass-panel" style={{ width: 450, padding: '2rem', background: '#0f172a' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1.25rem', color: '#fff' }}>Add Authorized Google User</h3>
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Alex Smith"
+                  value={userForm.name}
+                  onChange={e => setUserForm({ ...userForm, name: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Authorized Google Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="alex@example.com"
+                  value={userForm.email}
+                  onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Role</label>
+                <select
+                  value={userForm.role}
+                  onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                >
+                  <option value="admin">Admin (Full Read/Write Access)</option>
+                  <option value="viewer">Viewer (Read-Only Financial View)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowUserModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Add Authorized User</button>
               </div>
             </form>
           </div>
