@@ -342,8 +342,8 @@ async function fetchLiveApiRevenue() {
   // Google AdSense Dynamic Revenue Integration
   const adsenseAccountId = process.env.GOOGLE_ADSENSE_ACCOUNT_ID || 'pub-1064467239180848';
   const adsenseRefreshToken = process.env.GOOGLE_ADSENSE_REFRESH_TOKEN;
-  const googleClientId = process.env.GOOGLE_CLIENT_ID;
-  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const googleClientId = process.env.GOOGLE_ADSENSE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_ADSENSE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 
   if (adsenseRefreshToken && googleClientId && googleClientSecret) {
     try {
@@ -355,17 +355,13 @@ async function fetchLiveApiRevenue() {
       });
       const accessToken = tokenRes.data?.access_token;
       if (accessToken) {
-        const reportRes = await axios.get(`https://adsense.googleapis.com/v2/accounts/${adsenseAccountId}/reports:generate`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: {
-            dateRange: 'THIS_MONTH',
-            metrics: ['ESTIMATED_EARNINGS'],
-            dimensions: ['MONTH']
-          }
+        const reportUrl = `https://adsense.googleapis.com/v2/accounts/${adsenseAccountId}/reports:generate?dateRange=MONTH_TO_DATE&metrics=ESTIMATED_EARNINGS&metrics=IMPRESSIONS`;
+        const reportRes = await axios.get(reportUrl, {
+          headers: { Authorization: `Bearer ${accessToken}`, 'x-goog-user-project': 'daily-flow-labs' }
         });
         const rows = reportRes.data?.rows || [];
         for (const row of rows) {
-          const earnings = parseFloat(row.cells?.[1]?.value || '0');
+          const earnings = parseFloat(row.cells?.[0]?.value || '0');
           if (earnings > 0) {
             const matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
             liveRevenues.push({
