@@ -184,7 +184,7 @@ async function fetchLiveApiCosts() {
         description: `Resend Live Email API (${isProPlan ? 'Pro Plan' : 'Free Tier'})`,
         amount: liveResendCost,
         billingCycle: 'monthly',
-        date: '2026-03-12T00:00:00Z' // Resend active since March
+        date: '2026-03-12T00:00:00Z'
       });
     } catch (e) {
       console.warn('Resend dynamic billing query warning:', (e as any).message);
@@ -196,6 +196,51 @@ async function fetchLiveApiCosts() {
   return [...liveCosts, ...dbCosts];
 }
 
+// Helper function: Fetch revenue 100% LIVE from Stripe API
+async function fetchLiveApiRevenue() {
+  const allOrgs = await Organization.find({ isActive: true });
+  const orgSlugMap: Record<string, any> = {};
+  const parentOrg = allOrgs.find(o => o.isParent) || allOrgs[0];
+  for (const o of allOrgs) {
+    orgSlugMap[o.slug] = o;
+  }
+
+  const liveRevenues: any[] = [];
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+  if (stripeKey) {
+    try {
+      const authHeader = Buffer.from(`${stripeKey}:`).toString('base64');
+      const stripeRes = await axios.get('https://api.stripe.com/v1/charges?limit=100', {
+        headers: { Authorization: `Basic ${authHeader}` }
+      });
+      const charges = stripeRes.data?.data || [];
+
+      for (const c of charges) {
+        if (!c.paid || c.status !== 'succeeded') continue;
+        const amountDollars = (c.amount || 0) / 100;
+        const createdDate = new Date((c.created || 0) * 1000).toISOString();
+        const desc = c.description || c.statement_descriptor || 'Stripe Live Customer Payment';
+        let matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+
+        liveRevenues.push({
+          _id: `stripe_charge_${c.id}`,
+          organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+          source: 'stripe_subscriptions',
+          description: desc,
+          amount: amountDollars,
+          date: createdDate
+        });
+      }
+    } catch (e) {
+      console.warn('Stripe dynamic revenue query warning:', (e as any).message);
+    }
+  }
+
+  const dbRevenues = await RevenueEntry.find().populate('organizationId', 'name slug');
+  return [...liveRevenues, ...dbRevenues];
+}
+
 // GET /api/accounting/overview - Aggregated financial metrics 100% live via APIs with month jumping
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
@@ -205,6 +250,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
 
   try {
     const allCosts = await fetchLiveApiCosts();
+    const allRevenues = await fetchLiveApiRevenue();
     const filterOrgId = org._id.toString();
 
     // Filter costs by selected organization
@@ -221,18 +267,19 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       const itemYear = d.getFullYear();
 
       if (c.billingCycle === 'one-off') {
-        // One-off domain purchases only appear in the specific month purchased
         return itemYear === 2026 && itemMonth === targetMonthIdx;
       } else {
-        // Monthly or annual recurring costs apply if created on or before target month
         if (itemYear < 2026) return true;
         if (itemYear === 2026) return itemMonth <= targetMonthIdx;
         return false;
       }
     });
 
-    const revFilter: any = isAggregated ? {} : { organizationId: org._id };
-    let revenues = await RevenueEntry.find(revFilter).populate('organizationId', 'name slug');
+    let revenues = isAggregated ? allRevenues : allRevenues.filter(r => {
+      const rId = r.organizationId?._id?.toString() || r.organizationId?.toString();
+      return rId === filterOrgId;
+    });
+
     revenues = revenues.filter(r => {
       if (!r.date) return true;
       const d = new Date(r.date);
@@ -326,7 +373,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/accounting/live-integrations - Fetch live data from DigitalOcean, Resend, Name.com & AI API usage
+// GET /api/accounting/live-integrations - Fetch live data from DigitalOcean, Resend, Name.com, Stripe & AI API usage
 router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
   try {
     // 🖥️ DigitalOcean Live Billing API Query
@@ -340,6 +387,21 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         digitalOceanBilling = doRes.data;
       } catch (e) {
         console.warn('DigitalOcean Billing API query warning:', (e as any).message);
+      }
+    }
+
+    // 💳 Stripe Live API Balance Query
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    let stripeBalance: any = null;
+    if (stripeKey) {
+      try {
+        const authHeader = Buffer.from(`${stripeKey}:`).toString('base64');
+        const stripeRes = await axios.get('https://api.stripe.com/v1/balance', {
+          headers: { Authorization: `Basic ${authHeader}` }
+        });
+        stripeBalance = stripeRes.data;
+      } catch (e) {
+        console.warn('Stripe balance query warning:', (e as any).message);
       }
     }
 
@@ -394,6 +456,12 @@ router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
         accountBalance: digitalOceanBilling?.account_balance || '-50.00',
         monthToDateBalance: digitalOceanBilling?.month_to_date_balance || '15.58',
         generatedAt: digitalOceanBilling?.generated_at
+      },
+      stripe: {
+        connected: !!stripeBalance,
+        livemode: stripeBalance?.livemode || false,
+        availableAmount: ((stripeBalance?.available?.[0]?.amount || 0) / 100).toFixed(2),
+        currency: stripeBalance?.available?.[0]?.currency?.toUpperCase() || 'USD'
       },
       resend: {
         connected: true,
@@ -459,6 +527,23 @@ router.get('/costs', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/accounting/revenue - Return 100% live API revenue entries
+router.get('/revenue', async (req: AuthRequest, res: Response) => {
+  const org = (req as any).org;
+  const isAggregated = (req as any).isAggregated;
+  try {
+    const allRevenues = await fetchLiveApiRevenue();
+    const filterOrgId = org._id.toString();
+    const revenues = isAggregated ? allRevenues : allRevenues.filter(r => {
+      const rId = r.organizationId?._id?.toString() || r.organizationId?.toString();
+      return rId === filterOrgId;
+    });
+    res.json(revenues);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch revenue' });
+  }
+});
+
 // POST /api/accounting/costs
 router.post('/costs', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
@@ -495,21 +580,6 @@ router.delete('/costs/:id', async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Cost entry deleted' });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete cost entry' });
-  }
-});
-
-// GET /api/accounting/revenue
-router.get('/revenue', async (req: AuthRequest, res: Response) => {
-  const org = (req as any).org;
-  const isAggregated = (req as any).isAggregated;
-  try {
-    const filter = isAggregated ? {} : { organizationId: org._id };
-    const revenues = await RevenueEntry.find(filter)
-      .sort({ date: -1 })
-      .populate('organizationId', 'name slug');
-    res.json(revenues);
-  } catch (err: any) {
-    res.status(500).json({ error: 'Failed to fetch revenue' });
   }
 });
 
