@@ -5,7 +5,7 @@ import User from '../models/User';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 
 const router = Router();
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '977344195641-kh2se29jgfmvn9hmdv1oirtu4hlul8j7.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '918789497208-uvkolfer6isin2v3d5ooac3fhekdk3e4.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const generateToken = (user: any) => {
