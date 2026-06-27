@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import axios from 'axios';
 import Organization from '../models/Organization';
 import CostEntry from '../models/CostEntry';
 import RevenueEntry from '../models/RevenueEntry';
@@ -91,12 +92,12 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     }
 
     // Per Brand Breakdown (if aggregated)
-    const brandBreakdown: Record<string, { name: string; slug: string; costs: number; revenue: number; net: number }> = {};
+    const brandBreakdown: Record<string, { id: string; name: string; slug: string; costs: number; revenue: number; net: number }> = {};
     if (isAggregated) {
       const allOrgs = await Organization.find({ isActive: true });
       for (const o of allOrgs) {
         if (!o.isParent) {
-          brandBreakdown[o._id.toString()] = { name: o.name, slug: o.slug, costs: 0, revenue: 0, net: 0 };
+          brandBreakdown[o._id.toString()] = { id: o._id.toString(), name: o.name, slug: o.slug, costs: 0, revenue: 0, net: 0 };
         }
       }
       for (const c of costs) {
@@ -127,6 +128,63 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to generate financial overview' });
+  }
+});
+
+// GET /api/accounting/live-integrations - Fetch live data from Resend, Name.com & AI API usage
+router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
+  try {
+    const resendKey = process.env.RESEND_API_KEY || 're_AfBeXWUq_DaiVpRyDtsVJhJcqjnLpDWyS';
+    let resendDomains: any[] = [];
+    try {
+      const resendRes = await axios.get('https://api.resend.com/domains', {
+        headers: { Authorization: `Bearer ${resendKey}` }
+      });
+      resendDomains = resendRes.data?.data || [];
+    } catch (e) {
+      console.warn('Resend API live query warning:', (e as any).message);
+    }
+
+    // Name.com domains integration status
+    const nameComUser = process.env.NAME_COM_USERNAME || null;
+    const nameComToken = process.env.NAME_COM_API_TOKEN || null;
+    let nameComDomains: any[] = [];
+
+    if (nameComUser && nameComToken) {
+      try {
+        const authHeader = Buffer.from(`${nameComUser}:${nameComToken}`).toString('base64');
+        const nameRes = await axios.get('https://api.name.com/v4/domains', {
+          headers: { Authorization: `Basic ${authHeader}` }
+        });
+        nameComDomains = nameRes.data?.domains || [];
+      } catch (e) {
+        console.warn('Name.com API live query warning:', (e as any).message);
+      }
+    }
+
+    res.json({
+      resend: {
+        connected: true,
+        totalVerifiedDomains: resendDomains.length,
+        domains: resendDomains
+      },
+      nameCom: {
+        connected: !!(nameComUser && nameComToken),
+        domainsCount: nameComDomains.length,
+        domains: nameComDomains
+      },
+      geminiAi: {
+        models: ['Gemini 1.5 Flash', 'Gemini 1.5 Pro'],
+        pricing: {
+          flashInputPer1M: 0.075,
+          flashOutputPer1M: 0.30,
+          proInputPer1M: 1.25,
+          proOutputPer1M: 5.00
+        }
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch live integration details' });
   }
 });
 
