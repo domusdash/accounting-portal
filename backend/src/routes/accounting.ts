@@ -40,7 +40,7 @@ router.use(async (req: AuthRequest, res: Response, next) => {
   }
 });
 
-// Helper function: Fetch all infrastructure & domain costs 100% LIVE from DigitalOcean, Name.com Orders & Resend APIs
+// Helper function: Fetch all infrastructure & domain costs 100% LIVE from DigitalOcean, Name.com Orders, Resend & Meta/Reddit Ads APIs
 async function fetchLiveApiCosts() {
   const allOrgs = await Organization.find({ isActive: true });
   const orgSlugMap: Record<string, any> = {};
@@ -55,7 +55,6 @@ async function fetchLiveApiCosts() {
   const doToken = process.env.DIGITALOCEAN_TOKEN;
   if (doToken) {
     try {
-      // Fetch Apps
       const appsRes = await axios.get('https://api.digitalocean.com/v2/apps', {
         headers: { Authorization: `Bearer ${doToken}` }
       });
@@ -194,6 +193,40 @@ async function fetchLiveApiCosts() {
       });
     } catch (e) {
       console.warn('Resend dynamic billing query warning:', (e as any).message);
+    }
+  }
+
+  // 4. Meta Ads API Live Query for DomusDash & Studio
+  const metaToken = process.env.META_ADS_ACCESS_TOKEN;
+  const metaAdAccountId = process.env.META_AD_ACCOUNT_ID || 'act_1519721939640685';
+  if (metaToken && metaAdAccountId) {
+    try {
+      const fbRes = await axios.get(`https://graph.facebook.com/v19.0/${metaAdAccountId}/insights`, {
+        params: {
+          fields: 'spend,clicks,impressions',
+          date_preset: 'maximum',
+          access_token: metaToken
+        }
+      });
+      if (fbRes.data && Array.isArray(fbRes.data.data)) {
+        for (const item of fbRes.data.data) {
+          const spend = parseFloat(item.spend || '0');
+          if (spend > 0) {
+            const matchedOrg = orgSlugMap['domusdash'] || parentOrg;
+            liveCosts.push({
+              _id: `meta_ad_spend_${item.date_start || 'total'}`,
+              organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+              category: 'ad_spend',
+              description: `Meta Ads Spend (DomusDash Campaign)`,
+              amount: spend,
+              billingCycle: 'monthly',
+              date: item.date_start || new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Meta Ads live query warning:', (e as any).message);
     }
   }
 
@@ -379,7 +412,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/accounting/live-integrations - Fetch live data from DigitalOcean, Resend, Name.com, Stripe & AI API usage
+// GET /api/accounting/live-integrations - Fetch live data from DigitalOcean, Resend, Name.com, Stripe & Meta Ads
 router.get('/live-integrations', async (req: AuthRequest, res: Response) => {
   try {
     // 🖥️ DigitalOcean Live Billing API Query
