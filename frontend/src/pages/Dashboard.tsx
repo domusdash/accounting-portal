@@ -117,6 +117,11 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [usersList, setUsersList] = useState<UserItem[]>([]);
   const [liveIntegrations, setLiveIntegrations] = useState<any>(null);
 
+  // Cost Ledger Filters
+  const [costSearch, setCostSearch] = useState<string>('');
+  const [costCategoryFilter, setCostCategoryFilter] = useState<string>('all');
+  const [costCycleFilter, setCostCycleFilter] = useState<string>('all');
+
   // Modals
   const [showCostModal, setShowCostModal] = useState<boolean>(false);
   const [showRevModal, setShowRevModal] = useState<boolean>(false);
@@ -669,9 +674,73 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
         {/* TAB 2: COST LEDGER */}
         {activeTab === 'costs' && (
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', color: '#fff' }}>
-              Infrastructure & Operating Expense Ledger
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: '#fff' }}>
+                Infrastructure & Operating Expense Ledger
+              </h3>
+              
+              {/* Filter Control Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search ledger description or brand..."
+                  value={costSearch}
+                  onChange={e => setCostSearch(e.target.value)}
+                  style={{
+                    background: '#0f172a',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 6,
+                    padding: '0.45rem 0.85rem',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    minWidth: 230
+                  }}
+                />
+                <select
+                  value={costCategoryFilter}
+                  onChange={e => setCostCategoryFilter(e.target.value)}
+                  style={{
+                    background: '#0f172a',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 6,
+                    padding: '0.45rem 0.85rem',
+                    color: '#fff',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <option value="all">All Categories</option>
+                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+                <select
+                  value={costCycleFilter}
+                  onChange={e => setCostCycleFilter(e.target.value)}
+                  style={{
+                    background: '#0f172a',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 6,
+                    padding: '0.45rem 0.85rem',
+                    color: '#fff',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <option value="all">All Cycles</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="one-off">One-off</option>
+                  <option value="annual">Annual</option>
+                </select>
+                {(costSearch || costCategoryFilter !== 'all' || costCycleFilter !== 'all') && (
+                  <button
+                    onClick={() => { setCostSearch(''); setCostCategoryFilter('all'); setCostCycleFilter('all'); }}
+                    style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 6, padding: '0.45rem 0.75rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
                 <thead>
@@ -686,7 +755,15 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {costsList.map(cost => {
+                  {costsList
+                    .filter(cost => {
+                      const matchesSearch = cost.description.toLowerCase().includes(costSearch.toLowerCase()) || 
+                                            (cost.organizationId?.name || '').toLowerCase().includes(costSearch.toLowerCase());
+                      const matchesCategory = costCategoryFilter === 'all' || cost.category === costCategoryFilter;
+                      const matchesCycle = costCycleFilter === 'all' || cost.billingCycle === costCycleFilter;
+                      return matchesSearch && matchesCategory && matchesCycle;
+                    })
+                    .map(cost => {
                     const IconComp = CATEGORY_ICONS[cost.category] || FaCoins;
                     return (
                       <tr key={cost._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
