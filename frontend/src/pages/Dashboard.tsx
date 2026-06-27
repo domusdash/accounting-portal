@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { 
   FaServer, FaBullhorn, FaEnvelope, FaDatabase, FaGlobe, FaRobot, FaCoins,
   FaPlus, FaTrashAlt, FaChartLine, FaArrowUp, FaArrowDown, 
-  FaWallet, FaExclamationTriangle, FaCheckCircle, FaSpinner, FaExternalLinkAlt, FaUserCircle, FaSignOutAlt
+  FaWallet, FaUserCircle, FaSignOutAlt, FaSlidersH
 } from 'react-icons/fa';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
@@ -49,6 +49,11 @@ interface OverviewData {
   brandBreakdown: Array<{ name: string; slug: string; costs: number; revenue: number; net: number }>;
 }
 
+interface DashboardProps {
+  user: any;
+  onLogout: () => void;
+}
+
 const CATEGORY_ICONS: Record<string, any> = {
   digital_ocean: FaServer,
   mongodb_atlas: FaDatabase,
@@ -79,7 +84,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'];
 
-export default function Dashboard() {
+export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue'>('overview');
@@ -152,19 +157,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    // Auto-login seed admin user if token missing
-    const autoLogin = async () => {
-      if (!localStorage.getItem('token')) {
-        try {
-          const res = await api.post('/auth/login', { email: 'benjosephroberts@gmail.com', password: 'password123' });
-          localStorage.setItem('token', res.data.token);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      await fetchOrganizations();
-    };
-    autoLogin();
+    fetchOrganizations();
   }, []);
 
   useEffect(() => {
@@ -283,7 +276,7 @@ export default function Dashboard() {
           </div>
 
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {selectedOrgId.endsWith('__all') ? `${activeOrg?.name || 'Daily Flow'} (All Aggregated)` : activeOrg?.name || 'Select Brand'}
             </span>
             <select
@@ -302,28 +295,19 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <a
-            href="https://substack.com/@dailyflowlabs"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#f59e0b', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-          >
-            Substack <FaExternalLinkAlt style={{ fontSize: '0.7rem' }} />
-          </a>
-
           <div style={{ position: 'relative' }} ref={profileDropdownRef}>
             <button
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
             >
               <FaUserCircle style={{ fontSize: '1.5rem', color: 'var(--primary)' }} />
-              <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Ben Roberts</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{user?.name || 'Ben Roberts'}</span>
             </button>
 
             {profileDropdownOpen && (
               <div className="glass-panel" style={{ position: 'absolute', right: 0, top: '120%', width: 200, padding: '0.5rem', zIndex: 200 }}>
                 <button
-                  onClick={() => { localStorage.removeItem('token'); window.location.reload(); }}
+                  onClick={onLogout}
                   style={{ width: '100%', padding: '0.6rem 0.8rem', background: 'transparent', border: 'none', color: '#ef4444', textAlign: 'left', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
                 >
                   <FaSignOutAlt /> Log Out
@@ -344,7 +328,7 @@ export default function Dashboard() {
               Financial Intelligence & Accounting
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
-              Cost vs. Return analysis across DigitalOcean servers, Resend emails, Ad campaigns, and AdSense revenue.
+              Cost vs. Return analysis across DigitalOcean droplets, MongoDB Atlas clusters, Resend emails, Ad campaigns, and AdSense revenue.
             </p>
           </div>
 
@@ -660,7 +644,7 @@ export default function Dashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g., DigitalOcean Droplet 4GB RAM"
+                  placeholder="e.g., DigitalOcean Droplet SFO3"
                   value={costForm.description}
                   onChange={e => setCostForm({ ...costForm, description: e.target.value })}
                   style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
@@ -674,7 +658,7 @@ export default function Dashboard() {
                     type="number"
                     step="0.01"
                     required
-                    placeholder="24.00"
+                    placeholder="5.00"
                     value={costForm.amount}
                     onChange={e => setCostForm({ ...costForm, amount: e.target.value })}
                     style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
