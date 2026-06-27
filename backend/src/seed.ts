@@ -66,11 +66,10 @@ const seedData = async () => {
     await CostEntry.deleteMany({});
     await RevenueEntry.deleteMany({});
 
-    console.log('[🌱] Seeding exact verified app server infrastructure & AI costs...');
+    console.log('[🌱] Seeding verified app server infrastructure...');
     const verifiedCosts = [
-      // DomusDash Production Infrastructure & Gemini Vision OCR
+      // DomusDash Production Container
       { org: 'domusdash', category: 'digital_ocean', description: 'DigitalOcean App Platform Container (domusdash-prod)', amount: 5.00, billingCycle: 'monthly' },
-      { org: 'domusdash', category: 'ai_apis', description: 'Gemini 1.5 Flash Vision API (Receipt OCR & Household Parsing)', amount: 22.10, billingCycle: 'monthly' },
 
       // Verified DigitalOcean Droplet Servers ($4.00/mo SFO3 droplets)
       { org: 'antiwokeschools', category: 'digital_ocean', description: 'DigitalOcean Droplet Server (antiwokeschools SFO3 512MB)', amount: 4.00, billingCycle: 'monthly' },
@@ -100,7 +99,7 @@ const seedData = async () => {
       }
     }
 
-    console.log('[🌱] DomusDash server & AI accounting seed complete!');
+    console.log('[🌱] Accounting database clean seed complete!');
     process.exit(0);
   } catch (err) {
     console.error('[❌] Error seeding database:', err);
