@@ -4,7 +4,7 @@ import {
   FaServer, FaDatabase, FaEnvelope, FaBullhorn, FaGlobe, FaRobot, FaCoins, FaGithub,
   FaWallet, FaChartLine, FaPlus, FaTrashAlt, FaUsers, FaUserPlus, 
   FaToggleOn, FaToggleOff, FaSignOutAlt, FaUserCircle, FaBuilding, FaSearch, FaExternalLinkAlt, FaTimes,
-  FaChevronLeft, FaChevronRight, FaCalendarAlt
+  FaChevronLeft, FaChevronRight, FaCalendarAlt, FaSpinner
 } from 'react-icons/fa';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
@@ -479,8 +479,12 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <span>{timeframe === 'annual' ? 'Annualized Revenue' : 'Monthly Gross Revenue'}</span>
               <FaWallet style={{ color: '#10b981' }} />
             </div>
-            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#10b981' }}>
-              ${overview?.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#10b981', minHeight: '2.5rem', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '120px', height: '2rem' }} />
+              ) : (
+                `$${overview?.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+              )}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>AdSense, Stripe Subscriptions & Sales</span>
           </div>
@@ -491,8 +495,12 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <span>{timeframe === 'annual' ? 'Annualized Server & Ops' : 'Monthly Server & Ops'}</span>
               <FaServer style={{ color: '#ef4444' }} />
             </div>
-            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#ef4444' }}>
-              ${overview?.totalCosts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#ef4444', minHeight: '2.5rem', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '120px', height: '2rem' }} />
+              ) : (
+                `$${overview?.totalCosts.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+              )}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>DigitalOcean, MongoDB Atlas, Resend & Ads</span>
           </div>
@@ -503,11 +511,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <span>{timeframe === 'annual' ? 'Projected Annual Net Profit' : 'Monthly Net Studio Profit'}</span>
               <FaChartLine style={{ color: (overview?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444' }} />
             </div>
-            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: (overview?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
-              ${overview?.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: (overview?.netProfit || 0) >= 0 ? '#10b981' : '#ef4444', minHeight: '2.5rem', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '120px', height: '2rem' }} />
+              ) : (
+                `$${overview?.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+              )}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {(overview?.netProfit || 0) >= 0 ? '▲ Net Return after operations' : '▼ Operating deficit'}
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '140px', height: '0.8rem' }} />
+              ) : (
+                (overview?.netProfit || 0) >= 0 ? '▲ Net Return after operations' : '▼ Operating deficit'
+              )}
             </span>
           </div>
 
@@ -517,11 +533,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <span>Profit Margin & ROI</span>
               <FaCoins style={{ color: '#6366f1' }} />
             </div>
-            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#6366f1' }}>
-              {overview?.profitMargin.toFixed(1) || '0.0'}%
+            <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#6366f1', minHeight: '2.5rem', display: 'flex', alignItems: 'center' }}>
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '90px', height: '2rem' }} />
+              ) : (
+                `${overview?.profitMargin.toFixed(1) || '0.0'}%`
+              )}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              ROI: {overview?.roi.toFixed(1) || '0.0'}%
+              {loading ? (
+                <div className="skeleton-box" style={{ width: '100px', height: '0.8rem' }} />
+              ) : (
+                `ROI: ${overview?.roi.toFixed(1) || '0.0'}%`
+              )}
             </span>
           </div>
         </div>
@@ -637,32 +661,44 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {overview.brandBreakdown.map(brand => (
-                        <tr 
-                          key={brand.slug} 
-                          onClick={() => setSelectedBrandModal(brand)}
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.2s' }}
-                          className="brand-row-hover"
-                        >
-                          <td style={{ padding: '0.75rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            📱 {brand.name} <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 600 }}>(View Breakdown ➔)</span>
-                          </td>
-                          <td style={{ padding: '0.75rem', color: '#10b981', fontWeight: 600 }}>${brand.revenue.toFixed(2)}</td>
-                          <td style={{ padding: '0.75rem', color: '#ef4444', fontWeight: 600 }}>${brand.costs.toFixed(2)}</td>
-                          <td style={{ padding: '0.75rem', color: brand.net >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
-                            ${brand.net.toFixed(2)}
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <span style={{
-                              padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700,
-                              background: brand.net >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: brand.net >= 0 ? '#10b981' : '#ef4444'
-                            }}>
-                              {brand.net >= 0 ? 'PROFITABLE' : 'NET LOSS'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {loading ? (
+                        [1, 2, 3, 4].map(idx => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ padding: '0.75rem' }}><div className="skeleton-box" style={{ width: '140px', height: '1.2rem' }} /></td>
+                            <td style={{ padding: '0.75rem' }}><div className="skeleton-box" style={{ width: '60px', height: '1.2rem' }} /></td>
+                            <td style={{ padding: '0.75rem' }}><div className="skeleton-box" style={{ width: '60px', height: '1.2rem' }} /></td>
+                            <td style={{ padding: '0.75rem' }}><div className="skeleton-box" style={{ width: '60px', height: '1.2rem' }} /></td>
+                            <td style={{ padding: '0.75rem' }}><div className="skeleton-box" style={{ width: '90px', height: '1.2rem' }} /></td>
+                          </tr>
+                        ))
+                      ) : (
+                        overview.brandBreakdown.map(brand => (
+                          <tr 
+                            key={brand.slug} 
+                            onClick={() => setSelectedBrandModal(brand)}
+                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.2s' }}
+                            className="brand-row-hover"
+                          >
+                            <td style={{ padding: '0.75rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              📱 {brand.name} <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 600 }}>(View Breakdown ➔)</span>
+                            </td>
+                            <td style={{ padding: '0.75rem', color: '#10b981', fontWeight: 600 }}>${brand.revenue.toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem', color: '#ef4444', fontWeight: 600 }}>${brand.costs.toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem', color: brand.net >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                              ${brand.net.toFixed(2)}
+                            </td>
+                            <td style={{ padding: '0.75rem' }}>
+                              <span style={{
+                                padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700,
+                                background: brand.net >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: brand.net >= 0 ? '#10b981' : '#ef4444'
+                              }}>
+                                {brand.net >= 0 ? 'PROFITABLE' : 'NET LOSS'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
