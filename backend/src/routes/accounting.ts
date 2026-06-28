@@ -451,6 +451,27 @@ async function fetchLiveApiRevenue() {
   return [...liveRevenues, ...dbRevenues];
 }
 
+router.get('/debug-revenue', async (req: any, res: Response) => {
+  try {
+    const stripeKey = getStripeKey();
+    const authHeader = Buffer.from(`${stripeKey}:`).toString('base64');
+    const invRes = await axios.get('https://api.stripe.com/v1/invoices?limit=100&status=paid', {
+      headers: { Authorization: `Basic ${authHeader}` }
+    });
+    const allOrgs = await Organization.find({ isActive: true });
+    const liveRevenues = await fetchLiveApiRevenue();
+    res.json({
+      stripeKeyLength: stripeKey.length,
+      paidInvoicesCount: invRes.data?.data?.length || 0,
+      invoices: invRes.data?.data?.map((i: any) => ({ id: i.id, amount_paid: i.amount_paid, desc: i.lines?.data?.[0]?.description, created: i.created })),
+      orgsCount: allOrgs.length,
+      liveRevenues
+    });
+  } catch(err: any) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 // GET /api/accounting/overview - Aggregated financial metrics 100% live via APIs with month jumping
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   const org = (req as any).org;
