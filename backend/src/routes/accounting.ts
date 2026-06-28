@@ -369,7 +369,7 @@ async function fetchLiveApiRevenue() {
 
       for (const c of charges) {
         if (!c.paid || c.status !== 'succeeded') continue;
-        if (c.invoice || processedInvoiceChargeIds.has(c.id)) continue;
+        if (c.invoice || processedInvoiceChargeIds.has(c.id) || (c.description || '').toLowerCase().includes('subscription')) continue;
         const amountDollars = (c.amount || 0) / 100;
         const createdDate = new Date((c.created || 0) * 1000).toISOString();
         const desc = c.description || c.statement_descriptor || 'Stripe Live Customer Payment';
