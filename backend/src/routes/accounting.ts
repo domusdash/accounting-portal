@@ -313,6 +313,50 @@ async function fetchLiveApiRevenue() {
   if (stripeKey) {
     try {
       const authHeader = Buffer.from(`${stripeKey}:`).toString('base64');
+      
+      // 1. Fetch paid Invoices (Stripe Subscriptions)
+      const invRes = await axios.get('https://api.stripe.com/v1/invoices?limit=100&status=paid', {
+        headers: { Authorization: `Basic ${authHeader}` }
+      });
+      const invoices = invRes.data?.data || [];
+      const processedInvoiceChargeIds = new Set<string>();
+
+      for (const inv of invoices) {
+        if (!inv.amount_paid) continue;
+        if (inv.charge) processedInvoiceChargeIds.add(inv.charge);
+        const amountDollars = (inv.amount_paid || 0) / 100;
+        const createdDate = new Date((inv.created || 0) * 1000).toISOString();
+        const lineDesc = inv.lines?.data?.[0]?.description || inv.description || 'Stripe Customer Subscription';
+        const metaProject = inv.metadata?.project || inv.metadata?.app;
+        const searchStr = (lineDesc + ' ' + JSON.stringify(inv.metadata || {})).toLowerCase();
+        
+        let matchedOrg = parentOrg;
+        if (metaProject && orgSlugMap[metaProject]) {
+          matchedOrg = orgSlugMap[metaProject];
+        } else if (searchStr.includes('thumbverify') || searchStr.includes('creator pro')) {
+          matchedOrg = orgSlugMap['thumbverify'] || parentOrg;
+        } else if (searchStr.includes('domusdash') || searchStr.includes('family') || inv.metadata?.familyId) {
+          matchedOrg = orgSlugMap['domusdash'] || parentOrg;
+        } else {
+          for (const slug of Object.keys(orgSlugMap)) {
+            if (searchStr.includes(slug) || searchStr.includes(orgSlugMap[slug].name.toLowerCase())) {
+              matchedOrg = orgSlugMap[slug];
+              break;
+            }
+          }
+        }
+
+        liveRevenues.push({
+          _id: `stripe_invoice_${inv.id}`,
+          organizationId: { _id: matchedOrg._id, name: matchedOrg.name, slug: matchedOrg.slug },
+          source: 'stripe_subscriptions',
+          description: lineDesc,
+          amount: amountDollars,
+          date: createdDate
+        });
+      }
+
+      // 2. Fetch direct Charges (avoiding duplicates already captured via invoice)
       const stripeRes = await axios.get('https://api.stripe.com/v1/charges?limit=100', {
         headers: { Authorization: `Basic ${authHeader}` }
       });
@@ -320,6 +364,7 @@ async function fetchLiveApiRevenue() {
 
       for (const c of charges) {
         if (!c.paid || c.status !== 'succeeded') continue;
+        if (c.invoice || processedInvoiceChargeIds.has(c.id)) continue;
         const amountDollars = (c.amount || 0) / 100;
         const createdDate = new Date((c.created || 0) * 1000).toISOString();
         const desc = c.description || c.statement_descriptor || 'Stripe Live Customer Payment';
