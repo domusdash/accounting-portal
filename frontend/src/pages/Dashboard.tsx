@@ -376,27 +376,14 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       );
     }
 
-    const parent = orgs.find(o => o.isParent);
-    const children = orgs.filter(o => !o.isParent);
     return (
-      <>
-        {parent && (
-          <>
-            <option value={`${parent._id}__all`}>
-              🌐 {parent.name} (All Aggregated Studio Brands)
-            </option>
-            <option value={parent._id}>
-              🏢 {parent.name} (Individual Studio Operations)
-            </option>
-          </>
-        )}
-        {parent && <option disabled>──────────</option>}
-        {children.map(c => (
+      <optgroup label="Studio Product Brands">
+        {orgs.map(c => (
           <option key={c._id} value={c._id}>
             📱 {c.name}
           </option>
         ))}
-      </>
+      </optgroup>
     );
   };
 
@@ -431,9 +418,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             <FaBuilding style={{ color: 'var(--primary)', marginRight: 6 }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>
               {selectedOrgId.endsWith('__all')
-                ? `${activeOrg?.name || 'Daily Flow'} (Aggregated Studio)`
-                : activeOrg?.isParent
-                ? `${activeOrg?.name} (Individual Operations)`
+                ? `${groups.find(g => selectedOrgId === `${g._id}__all`)?.name || activeOrg?.name || 'All Brands'} (Aggregated Portfolio)`
                 : activeOrg?.name || 'Select Brand'}
             </span>
             <select
