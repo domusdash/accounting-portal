@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { 
   FaServer, FaDatabase, FaEnvelope, FaBullhorn, FaGlobe, FaRobot, FaCoins, FaGithub,
-  FaWallet, FaChartLine, FaPlus, FaTrashAlt, FaUsers, FaUserPlus, 
+  FaWallet, FaChartLine, FaPlus, FaTrashAlt, FaUsers, FaUserPlus, FaEdit,
   FaToggleOn, FaToggleOff, FaSignOutAlt, FaUserCircle, FaBuilding, FaSearch, FaExternalLinkAlt, FaTimes,
   FaChevronLeft, FaChevronRight, FaCalendarAlt, FaSpinner
 } from 'react-icons/fa';
@@ -42,7 +42,7 @@ interface UserItem {
   email: string;
   name: string;
   role: string;
-  disabled: boolean;
+  disabled?: boolean;
   createdAt: string;
 }
 
@@ -68,30 +68,41 @@ const CATEGORY_ICONS: Record<string, any> = {
   mongodb_atlas: FaDatabase,
   resend: FaEnvelope,
   ad_spend: FaBullhorn,
-  domain_hosting: FaGlobe,
-  ai_apis: FaRobot,
-  github: FaGithub,
+  domain: FaGlobe,
+  ai_api: FaRobot,
   other: FaCoins
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  digital_ocean: 'DigitalOcean Servers',
-  mongodb_atlas: 'MongoDB Atlas Cluster',
-  resend: 'Resend Emails',
-  ad_spend: 'Ad Spend (Google/Meta)',
-  domain_hosting: 'Domains & SSL',
-  ai_apis: 'AI APIs (OpenAI/Gemini)',
-  github: 'GitHub Team & Copilot',
-  other: 'Other Operating Cost'
+const REVENUE_ICONS: Record<string, any> = {
+  google_adsense: FaBullhorn,
+  stripe_subscriptions: FaWallet,
+  affiliate: FaCoins,
+  direct_sales: FaChartLine,
+  other: FaCoins
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  google_adsense: 'Google AdSense',
+const CATEGORY_NAMES: Record<string, string> = {
+  digital_ocean: 'DigitalOcean Hosting',
+  mongodb_atlas: 'MongoDB Atlas Database',
+  resend: 'Resend Email Service',
+  ad_spend: 'Ad Spend (Meta/Reddit)',
+  domain: 'Name.com Domains',
+  domain_hosting: 'Domains & SSL',
+  ai_api: 'Gemini AI API',
+  ai_apis: 'AI APIs',
+  github: 'GitHub',
+  other: 'Other Expenses'
+};
+const CATEGORY_LABELS = CATEGORY_NAMES;
+
+const REVENUE_NAMES: Record<string, string> = {
+  google_adsense: 'Google AdSense Ads',
   stripe_subscriptions: 'Stripe Subscriptions',
   affiliate: 'Affiliate Payouts',
   direct_sales: 'Direct Sales',
   other: 'Other Revenue'
 };
+const SOURCE_LABELS = REVENUE_NAMES;
 
 const MONTH_NAMES = [
   'January 2026', 'February 2026', 'March 2026', 'April 2026', 
@@ -105,9 +116,17 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue' | 'users' | 'organizations'>('overview');
   const [loading, setLoading] = useState<boolean>(true);
   
+  // Organization Group Management States
+  const [showGroupModal, setShowGroupModal] = useState<boolean>(false);
+  const [editingGroup, setEditingGroup] = useState<any | null>(null);
+  const [groupName, setGroupName] = useState<string>('');
+  const [groupSlug, setGroupSlug] = useState<string>('');
+  const [groupDescription, setGroupDescription] = useState<string>('');
+  const [selectedMemberOrgIds, setSelectedMemberOrgIds] = useState<string[]>([]);
+
   // Timeframe & Month Navigation
   const [timeframe, setTimeframe] = useState<'monthly' | 'annual'>('monthly');
   const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(5); // Default to June 2026 (current month)
@@ -283,6 +302,40 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
       fetchFinancialData();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to toggle user status');
+    }
+  };
+
+  const handleSaveGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: groupName.trim(),
+        slug: groupSlug.trim().toLowerCase(),
+        description: groupDescription.trim(),
+        memberOrgIds: selectedMemberOrgIds
+      };
+      if (editingGroup) {
+        await api.put(`/groups/${editingGroup._id}`, payload);
+        toast.success('Organization group updated');
+      } else {
+        await api.post('/groups', payload);
+        toast.success('Organization group created');
+      }
+      setShowGroupModal(false);
+      fetchOrganizations();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to save organization group');
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this organization group?')) return;
+    try {
+      await api.delete(`/groups/${id}`);
+      toast.success('Organization group deleted');
+      fetchOrganizations();
+    } catch (err: any) {
+      toast.error('Failed to delete organization group');
     }
   };
 
@@ -632,6 +685,15 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           >
             Team Members ({usersList.length})
           </button>
+          <button
+            onClick={() => setActiveTab('organizations')}
+            style={{
+              padding: '0.75rem 1.25rem', background: 'transparent', border: 'none', color: activeTab === 'organizations' ? '#fff' : 'var(--text-muted)',
+              borderBottom: activeTab === 'organizations' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            Organizations & Portfolios ({groups.length})
+          </button>
         </div>
 
         {/* TAB 1: FINANCIAL OVERVIEW & CHARTS */}
@@ -974,6 +1036,101 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: ORGANIZATIONS & PORTFOLIO GROUPS */}
+        {activeTab === 'organizations' && (
+          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>Portfolio Organizations & Brand Grouping</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 2 }}>
+                  Organize your studio apps into custom parent portfolio groups and move member brands between organizations.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setEditingGroup(null);
+                  setGroupName('');
+                  setGroupSlug('');
+                  setGroupDescription('');
+                  setSelectedMemberOrgIds([]);
+                  setShowGroupModal(true);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <FaPlus size={12} /> Create Organization Group
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+              {groups.map((group: any) => {
+                const memberIds = (group.memberOrgIds || []).map((m: any) => typeof m === 'object' ? m._id : m);
+                const memberBrands = organizations.filter((o: any) => memberIds.includes(o._id));
+
+                return (
+                  <div key={group._id} className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem', background: 'rgba(255,255,255,0.02)' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            👑 {group.name}
+                          </h4>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontFamily: 'monospace' }}>
+                            slug: {group.slug}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingGroup(group);
+                              setGroupName(group.name);
+                              setGroupSlug(group.slug);
+                              setGroupDescription(group.description || '');
+                              setSelectedMemberOrgIds(memberIds);
+                              setShowGroupModal(true);
+                            }}
+                            style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#818cf8', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <FaEdit size={11} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteGroup(group._id)}
+                            style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                          >
+                            <FaTrashAlt size={11} />
+                          </button>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 1rem 0' }}>
+                        {group.description || 'No description provided.'}
+                      </p>
+
+                      <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>
+                          Assigned Member Brands ({memberBrands.length})
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                          {memberBrands.map((b: any) => (
+                            <span key={b._id} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '3px 8px', borderRadius: '12px', fontSize: '0.78rem', color: '#fff' }}>
+                              📱 {b.name}
+                            </span>
+                          ))}
+                          {memberBrands.length === 0 && (
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No brands assigned yet. Click Edit to add brands.</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1354,6 +1511,90 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
                 <button type="button" className="btn-secondary" onClick={() => setShowUserModal(false)}>Cancel</button>
                 <button type="submit" className="btn-primary">Add Authorized User</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: ORGANIZATION GROUP CREATION / EDITING */}
+      {showGroupModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, backdropFilter: 'blur(4px)', padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 550, padding: '2rem', background: '#0f172a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: '#fff' }}>
+                {editingGroup ? 'Edit Organization Group' : 'Create New Organization Group'}
+              </h3>
+              <button type="button" onClick={() => setShowGroupModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.4rem', cursor: 'pointer' }}>&times;</button>
+            </div>
+            <form onSubmit={handleSaveGroup} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Organization Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Media Group, SaaS Products"
+                  value={groupName}
+                  onChange={(e) => {
+                    setGroupName(e.target.value);
+                    if (!editingGroup) {
+                      setGroupSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''));
+                    }
+                  }}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Organization Slug *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. acme-media"
+                  value={groupSlug}
+                  onChange={(e) => setGroupSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Description (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Short description of this brand portfolio"
+                  value={groupDescription}
+                  onChange={(e) => setGroupDescription(e.target.value)}
+                  style={{ width: '100%', padding: '0.65rem', background: '#1e293b', border: '1px solid var(--glass-border)', color: '#fff', borderRadius: 8, marginTop: 4 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Assigned Member Brands</label>
+                <div style={{ background: '#1e293b', padding: '0.75rem', borderRadius: 8, maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', border: '1px solid var(--glass-border)' }}>
+                  {organizations.map((org: any) => {
+                    const checked = selectedMemberOrgIds.includes(org._id);
+                    return (
+                      <label key={org._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#fff' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMemberOrgIds([...selectedMemberOrgIds, org._id]);
+                            } else {
+                              setSelectedMemberOrgIds(selectedMemberOrgIds.filter(id => id !== org._id));
+                            }
+                          }}
+                        />
+                        📱 {org.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowGroupModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Organization Group</button>
               </div>
             </form>
           </div>
