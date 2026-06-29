@@ -9,6 +9,7 @@ import authRoutes from './routes/auth';
 import organizationRoutes from './routes/organizations';
 import accountingRoutes from './routes/accounting';
 import userRoutes from './routes/users';
+import groupRoutes from './routes/groups';
 
 const app = express();
 const PORT = process.env.PORT || 5004;
@@ -24,6 +25,7 @@ app.use(['/api/auth', '/auth'], authRoutes);
 app.use(['/api/organizations', '/organizations'], organizationRoutes);
 app.use(['/api/accounting', '/accounting'], accountingRoutes);
 app.use(['/api/users', '/users'], userRoutes);
+app.use(['/api/groups', '/groups'], groupRoutes);
 
 const mongodbUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dailyflowlabs_accounting';
 

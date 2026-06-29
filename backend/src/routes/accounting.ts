@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import axios from 'axios';
 import { execSync } from 'child_process';
 import Organization from '../models/Organization';
+import OrganizationGroup from '../models/OrganizationGroup';
 import CostEntry from '../models/CostEntry';
 import RevenueEntry from '../models/RevenueEntry';
 import { AuthRequest, requireAuth } from '../middleware/auth';
@@ -20,12 +21,27 @@ router.use(async (req: AuthRequest, res: Response, next) => {
   try {
     if (orgId.endsWith('__all')) {
       const realId = orgId.replace('__all', '');
+      const group = await OrganizationGroup.findById(realId);
+      if (group) {
+        (req as any).org = group;
+        (req as any).isAggregated = true;
+        (req as any).memberOrgIds = group.memberOrgIds;
+        return next();
+      }
       const parentOrg = await Organization.findById(realId);
       if (!parentOrg) {
         return res.status(404).json({ error: 'Parent organization not found' });
       }
       (req as any).org = parentOrg;
       (req as any).isAggregated = true;
+      return next();
+    }
+
+    const group = await OrganizationGroup.findById(orgId);
+    if (group) {
+      (req as any).org = group;
+      (req as any).isAggregated = true;
+      (req as any).memberOrgIds = group.memberOrgIds;
       return next();
     }
 
