@@ -103,6 +103,7 @@ const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5
 
 export default function Dashboard({ user, onLogout }: DashboardProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'costs' | 'revenue' | 'users'>('overview');
   const [loading, setLoading] = useState<boolean>(true);
@@ -143,16 +144,23 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
   const fetchOrganizations = async () => {
     try {
-      const res = await api.get('/organizations');
-      setOrganizations(res.data);
+      const [resOrgs, resGroups] = await Promise.all([
+        api.get('/organizations'),
+        api.get('/groups').catch(() => ({ data: [] }))
+      ]);
+      setOrganizations(resOrgs.data);
+      setGroups(resGroups.data || []);
       let activeId = localStorage.getItem('selectedOrganizationId') || '';
-      const parent = res.data.find((o: any) => o.isParent);
       
-      if (!activeId || !res.data.some((o: any) => o._id === activeId || `${o._id}__all` === activeId)) {
-        if (parent) {
-          activeId = `${parent._id}__all`;
-        } else if (res.data.length > 0) {
-          activeId = res.data[0]._id;
+      const exists = resOrgs.data.some((o: any) => o._id === activeId || `${o._id}__all` === activeId) ||
+        (resGroups.data || []).some((g: any) => g._id === activeId || `${g._id}__all` === activeId);
+
+      if (!activeId || !exists) {
+        if (resGroups.data && resGroups.data.length > 0) {
+          activeId = `${resGroups.data[0]._id}__all`;
+        } else if (resOrgs.data.length > 0) {
+          const parent = resOrgs.data.find((o: any) => o.isParent);
+          activeId = parent ? `${parent._id}__all` : resOrgs.data[0]._id;
         }
       }
       if (activeId) {
@@ -279,6 +287,42 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
   };
 
   const renderOrganizationOptions = (orgs: Organization[]) => {
+    if (groups && groups.length > 0) {
+      return (
+        <>
+          {groups.map((group: any) => {
+            const memberIds = (group.memberOrgIds || []).map((m: any) => typeof m === 'object' ? m._id : m);
+            const memberBrands = orgs.filter((o: any) => memberIds.includes(o._id));
+            const standaloneBrands = orgs.filter((o: any) => !memberIds.includes(o._id));
+
+            return (
+              <React.Fragment key={group._id}>
+                <optgroup label={`👑 ${group.name}`}>
+                  <option value={`${group._id}__all`}>
+                    🌐 {group.name} (All Studio Apps Aggregated)
+                  </option>
+                  {memberBrands.map(c => (
+                    <option key={c._id} value={c._id}>
+                      📱 {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+                {standaloneBrands.length > 0 && (
+                  <optgroup label="Other Studio Brands">
+                    {standaloneBrands.map(c => (
+                      <option key={c._id} value={c._id}>
+                        📱 {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </>
+      );
+    }
+
     const parent = orgs.find(o => o.isParent);
     const children = orgs.filter(o => !o.isParent);
     return (
