@@ -352,7 +352,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               <React.Fragment key={group._id}>
                 <optgroup label={`👑 ${group.name}`}>
                   <option value={`${group._id}__all`}>
-                    🌐 {group.name} (All Studio Apps Aggregated)
+                    🌐 All {group.name} Brands (Aggregated)
                   </option>
                   {memberBrands.map(c => (
                     <option key={c._id} value={c._id}>
