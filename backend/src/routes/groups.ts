@@ -7,13 +7,14 @@ const router = Router();
 // GET /api/groups - List all organization groups
 router.get('/', async (req, res) => {
   try {
+    await OrganizationGroup.updateMany({ name: { $regex: /Daily Flow/i } }, { $set: { name: 'All Organizations', slug: 'all-organizations' } });
     let groups = await OrganizationGroup.find().populate('memberOrgIds', 'name slug supportEmail');
     if (groups.length === 0) {
       const allOrgs = await Organization.find();
       if (allOrgs.length > 0) {
         const defaultGroup = new OrganizationGroup({
-          name: 'Daily Flow Labs Studio',
-          slug: 'daily-flow-labs-studio',
+          name: 'All Organizations',
+          slug: 'all-organizations',
           description: 'Master organization portfolio holding all studio product brands.',
           memberOrgIds: allOrgs.map(o => o._id)
         });
